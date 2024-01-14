@@ -156,6 +156,10 @@ void can_set_data_bitrate(enum can_data_bitrate bitrate)
 
     switch (bitrate)
     {
+        case CAN_DATA_BITRATE_500K:
+        	data_prescaler = 20;
+            break;
+
         case CAN_DATA_BITRATE_2M:
         	data_prescaler = 5;
             break;

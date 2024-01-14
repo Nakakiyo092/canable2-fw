@@ -177,7 +177,12 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
 		case 'Y':
 
 	    	// Check for valid bitrate
-	    	if(buf[1] == 2)
+	    	if(buf[1] == 0)
+	    	{
+                // Set data bitrate to 2M preset
+                can_set_data_bitrate(CAN_DATA_BITRATE_500K);
+	    	}
+            else if(buf[1] == 2)
 	    	{
                 // Set data bitrate to 2M preset
                 can_set_data_bitrate(CAN_DATA_BITRATE_2M);
