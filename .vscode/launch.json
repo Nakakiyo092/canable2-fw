@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "cwd": "${workspaceFolder}",
+      "executable": "./build_cmake/${fileBasename}",
+      "name": "cortex-debug stlink-v2_qyj",
+      "request": "launch",
+      "type": "cortex-debug",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none",
+      "servertype": "openocd",
+      "configFiles": [
+        "${workspaceFolder}/openocd_cfg/interface/stlink-v2_qyj.cfg",
+        "${workspaceFolder}/openocd_cfg/target/stm32g4x_qyj.cfg"
+      ]
+    },
+    {
+      "cwd": "${workspaceFolder}",
+      "executable": "./build_cmake/${fileBasename}",
+      "name": "cortex-debug jlink_qyj",
+      "request": "launch",
+      "type": "cortex-debug",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none",
+      "servertype": "openocd",
+      "svdFile": "./STM32G431xx.svd",
+      "configFiles": [
+        "${workspaceFolder}/openocd_cfg/interface/jlink_swd_qyj.cfg",
+        "${workspaceFolder}/openocd_cfg/target/stm32g4x_qyj.cfg"
+      ]
+    },
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": true,
+      "cwd": "f:/opencod_project/canable2-fw/src",
+      "program": "f:/opencod_project/canable2-fw/src/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,30 @@
 # user configuration:
 #######################################
 
+# if you want to debug via GDB, you should provide "make D=1" in your shell
+# otherwise, program will be optimized for size(-Os)
+# or you can change "-Os" to "-O3" for speed other than size
+ifeq ("$(origin D)", "command line")
+  DEBUG = $(D)
+endif
+ifndef DEBUG
+  DEBUG = 0
+endif
+
+ifeq ("$(origin L)", "command line")
+  LINKER = $(L)
+endif
+ifndef LINKER
+# s - st-link. j - jlink-swd
+  LINKER = s
+endif
+
+ifeq ($(DEBUG), 1)
+  # optimization
+  OPT = -Og
+else
+  OPT = -Os
+endif
 
 # SOURCES: list of sources in the user application
 SOURCES = main.c system.c usbd_conf.c usbd_cdc_if.c usb_device.c usbd_desc.c interrupts.c system_stm32g4xx.c can.c slcan.c led.c error.c printf.c
@@ -38,7 +62,14 @@ USB_INCLUDES = -IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc
 USB_INCLUDES += -IMiddlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
 
 # USER_CFLAGS: user C flags (enable warnings, enable debug info)
-USER_CFLAGS = -Wall -g -ffunction-sections -fdata-sections -Os
+USER_CFLAGS = -Wall -g -ffunction-sections -fdata-sections
+USER_CFLAGS += $(OPT)
+
+# -g Produce 				debugging information in the operating system’s native format (stabs, COFF, XCOFF, or DWARF). GDB can work with this debugging information.
+# -gdwarf-version		Produce debugging information in DWARF format (if that is supported). The value of version may be either 2, 3, 4 or 5;
+ifeq ($(DEBUG), 1)
+USER_CFLAGS += -g -gdwarf-2
+endif
 
 ifneq ($(EXTERNAL_OSCILLATOR), 1)
 USER_CFLAGS += -DINTERNAL_OSCILLATOR
@@ -102,8 +133,8 @@ CFLAGS += -DGIT_REMOTE=\"$(GIT_REMOTE)\"
 all: $(BUILD_DIR)/$(TARGET).bin $(BUILD_DIR)/$(TARGET).hex
 
 
-flash: all
-	sudo dfu-util -w -d 0483:df11 -c 1 -i 0 -a 0 -s 0x08000000:leave -D $(BUILD_DIR)/$(TARGET).bin
+# flash: all
+# 	sudo dfu-util -w -d 0483:df11 -c 1 -i 0 -a 0 -s 0x08000000:leave -D $(BUILD_DIR)/$(TARGET).bin
 
 
 #######################################
@@ -141,10 +172,10 @@ USB_OBJECTS += $(addprefix $(USB_BUILD_DIR)/,$(notdir $(USB_SOURCES:.c=.o)))
 usb: $(USB_OBJECTS)
 
 $(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/Core/Src/%.c | $(USB_BUILD_DIR)
-	$(CC) -Os $(CFLAGS) -c -o $@ $^
+	$(CC) $(OPT) $(CFLAGS) -c -o $@ $^
 
 $(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/Class/CDC/Src/%.c | $(USB_BUILD_DIR)
-	$(CC) -Os $(CFLAGS) -c -o $@ $^
+	$(CC) $(OPT) $(CFLAGS) -c -o $@ $^
 
 $(USB_BUILD_DIR):
 	@echo $(USB_BUILD_DIR)
@@ -176,7 +207,7 @@ $(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) $(USB_OBJECTS) $(CUBELIB)
 	$(SIZE) $@
 
 $(BUILD_DIR)/%.o: src/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -Os -c -o $@ $^
+	$(CC) $(CFLAGS) $(OPT) -c -o $@ $^
 
 $(BUILD_DIR)/%.o: src/%.s | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $^
@@ -193,3 +224,30 @@ clean:
 		-rm $(BUILD_DIR)/*.bin
 
 .PHONY: clean all cubelib
+
+OPENOCD_CFG_PATH =  $(CURDIR)/openocd_cfg
+
+ifeq ($(LINKER), s)
+	INTERFACE_CFG = '$(OPENOCD_CFG_PATH)/interface/stlink-v2_qyj.cfg'
+else
+ifeq ($(LINKER), j)
+	INTERFACE_CFG = '$(OPENOCD_CFG_PATH)/interface/jlink_swd_qyj.cfg'
+else
+	INTERFACE_CFG = '$(OPENOCD_CFG_PATH)/interface/stlink-v2_qyj.cfg'
+endif
+endif
+TARGET_CFG = '$(OPENOCD_CFG_PATH)/target/stm32g4x_qyj.cfg'
+download: all
+	-openocd -f ${INTERFACE_CFG} -f ${TARGET_CFG} -c init -c "reset halt; wait_halt; flash write_image erase build/${TARGET}.bin 0x8000000" -c reset -c shutdown
+
+download_build_cmake:
+	-openocd -f ${INTERFACE_CFG} -f ${TARGET_CFG} -c init -c "reset halt; wait_halt; flash write_image erase build_cmake/${TARGET}.bin 0x8000000" -c reset -c shutdown
+	
+debug:
+	-openocd -f ${INTERFACE_CFG} -f ${TARGET_CFG}
+
+openElf:
+	-code $(BUILD_DIR)/$(TARGET).elf
+
+openElf_build_cmake:
+	-code build_cmake/$(TARGET).elf

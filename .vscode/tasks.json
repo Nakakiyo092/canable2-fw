@@ -1,0 +1,55 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-debug",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "D=1"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "clean"
+            ],
+        },
+        {
+            "label": "build-no-debug",
+            "type": "shell",
+            "command": "make"
+        },
+        {
+            "label": "download jlink",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "download",
+                "L=j"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+        },
+        {
+            "label": "download st-link",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "download",
+                "L=s"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+        }
+    ]
+}

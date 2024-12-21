@@ -1,0 +1,167 @@
+{
+  "C_Cpp_Runner.cCompilerPath": "gcc",
+  "C_Cpp_Runner.cppCompilerPath": "g++",
+  "C_Cpp_Runner.debuggerPath": "gdb",
+  "C_Cpp_Runner.cStandard": "",
+  "C_Cpp_Runner.cppStandard": "",
+  "C_Cpp_Runner.msvcBatchPath": "C:/Program Files/Microsoft Visual Studio/VR_NR/Community/VC/Auxiliary/Build/vcvarsall.bat",
+  "C_Cpp_Runner.useMsvc": false,
+  "C_Cpp_Runner.warnings": [
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic",
+    "-Wshadow",
+    "-Wformat=2",
+    "-Wcast-align",
+    "-Wconversion",
+    "-Wsign-conversion",
+    "-Wnull-dereference"
+  ],
+  "C_Cpp_Runner.msvcWarnings": [
+    "/W4",
+    "/permissive-",
+    "/w14242",
+    "/w14287",
+    "/w14296",
+    "/w14311",
+    "/w14826",
+    "/w44062",
+    "/w44242",
+    "/w14905",
+    "/w14906",
+    "/w14263",
+    "/w44265",
+    "/w14928"
+  ],
+  "C_Cpp_Runner.enableWarnings": true,
+  "C_Cpp_Runner.warningsAsError": false,
+  "C_Cpp_Runner.compilerArgs": [],
+  "C_Cpp_Runner.linkerArgs": [],
+  "C_Cpp_Runner.includePaths": [],
+  "C_Cpp_Runner.includeSearch": [
+    "*",
+    "**/*"
+  ],
+  "C_Cpp_Runner.excludeSearch": [
+    "**/build",
+    "**/build/**",
+    "**/.*",
+    "**/.*/**",
+    "**/.vscode",
+    "**/.vscode/**"
+  ],
+  "C_Cpp_Runner.useAddressSanitizer": false,
+  "C_Cpp_Runner.useUndefinedSanitizer": false,
+  "C_Cpp_Runner.useLeakSanitizer": false,
+  "C_Cpp_Runner.showCompilationTime": false,
+  "C_Cpp_Runner.useLinkTimeOptimization": false,
+  "C_Cpp_Runner.msvcSecureNoWarnings": false,
+  // "terminal.integrated.profiles.windows": {
+  //       "GitBash": {
+  //           "path": "E:\\Git\\bin\\bash.exe",
+  //       }
+  // },
+  // "terminal.integrated.defaultProfile.windows": "Git Bash",
+  "cortex-debug.JLinkGDBServerPath": "E:/JLink/JLinkGDBServerCL.exe",
+  "cortex-debug.openocdPath": "C:/Program Files (x86)/xpack-openocd-0.12.0-2/bin/openocd.exe",
+  "cortex-debug.liveWatchRefreshRate": 300,
+  "cortex-debug.armToolchainPath": "C:/Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/bin",
+  "actionButtons": {
+      "reloadButton": "♻️", /* Custom reload button text */
+      "defaultColor": "#ff0034", /* Can also use string color names */
+      "loadNpmCommands": false, /* Disables automatic generation of actions for npm commands */
+      "commands": [
+            {
+                "name": "build-debug",
+                "color": "green",
+                "command": "make D=1 -j10", /* This is executed in the terminal */
+            },
+            {
+                "name": "clean",
+                "color": "orange",
+                "command": "make clean", /* This is executed in the terminal */
+            },
+            {
+                "name": "download jlink",
+                "color": "red",
+                "command": "make download L=j", /* This is executed in the terminal */
+            },
+            {
+                "name": "open elf",
+                "color": "yellow",
+                "command": "make openElf", /* This is executed in the terminal */
+            },
+            {
+                "name": "git reset",
+                "color": "white",
+                "command": "git reset --soft HEAD~1", /* This is executed in the terminal */
+            },
+            {
+                "name": "git log",
+                "color": "white",
+                "command": "git log", /* This is executed in the terminal */
+            },
+            {
+              "name": "git delete",
+              "color": "red",
+              "command": "git push --delete origin ${branch name}", /* This is executed in the terminal */
+            },
+            {
+              "name": "git push",
+              "color": "white",
+              "command": "git push origin ${branch name}", /* This is executed in the terminal */
+            },
+            {
+                "name": "build_cmake-debug",
+                "color": "green",
+                "command": "python build_cmake.py", /* This is executed in the terminal */
+            },
+            {
+                "name": "download jlink build_cmake",
+                "color": "red",
+                "command": "make download_build_cmake L=j", /* This is executed in the terminal */
+            },
+            {
+                "name": "openElf build_cmake",
+                "color": "yellow",
+                "command": "make openElf_build_cmake", /* This is executed in the terminal */
+            },
+        //   {
+        //       "cwd": "/home/custom_folder", /* Terminal initial folder */
+        //       "name": "Run Cargo",
+        //       "color": "green",
+        //       "singleInstance": true,
+        //       "command": "cargo run ${file}", /* This is executed in the terminal */
+        //   },
+        //   {
+        //       "name": "Build Cargo",
+        //       "color": "green",
+        //       "command": "cargo build ${file}",
+        //   },
+        //   {
+        //       "name": "🪟 Split editor",
+        //       "color": "orange",
+        //       "useVsCodeApi": true,
+        //       "command": "workbench.action.splitEditor"
+        //   },
+        //   {
+        //       /* example for esp-idf oriented command */
+        //       "name": "Flash",
+        //       "terminalName": "ESP-IDF 4.4 CMD",
+        //       "color": "red",
+        //       "useVsCodeApi": false,
+        //       "ignoreCwd": true,
+        //       "ignoreClear": true,
+        //       "command": "idf.py -p ${port} flash",
+        //       "extraCommands": [
+        //           "idf.py -p ${port} monitor"
+        //       ]
+        //   }
+      ],
+      "customVars": {
+          // "port": "COM4" /* Can be used in command as `${port}`*/
+          "branch name": "environment_setup"
+      }
+  }
+
+}

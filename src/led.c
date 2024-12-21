@@ -12,7 +12,7 @@ static volatile uint32_t led_blue_laston = 0;
 static volatile uint32_t led_green_laston = 0;
 static uint32_t led_blue_lastoff = 0;
 static uint32_t led_green_lastoff = 0;
-static uint8_t error_blink_status = 0;
+static uint8_t error_blink_status = LED_OFF;
 static uint8_t error_was_indicating = 0;
 static uint32_t last_errflash = 0;
 
@@ -39,7 +39,7 @@ void led_init()
     HAL_GPIO_Init(LED_GREEN_Port, &GPIO_InitStruct);
 
 
-    HAL_GPIO_WritePin(LED_GREEN, 1); 
+    HAL_GPIO_WritePin(LED_GREEN, LED_ON); 
 }
 
 
@@ -51,16 +51,16 @@ void led_green_on(void)
 	if(led_green_laston == 0 && HAL_GetTick() - led_green_lastoff > LED_DURATION)
 	{
         // Invert LED
-		HAL_GPIO_WritePin(LED_GREEN, 0);
+		HAL_GPIO_WritePin(LED_GREEN, LED_ON);
 		led_green_laston = HAL_GetTick();
 	}
 }
 
 
-// Turn green LED on
+// Turn green LED off
 void led_green_off(void)
 {
-	HAL_GPIO_WritePin(LED_GREEN, 0);
+	HAL_GPIO_WritePin(LED_GREEN, LED_OFF);
 }
 
 
@@ -70,9 +70,9 @@ void led_blue_blink(uint8_t numblinks)
 	uint8_t i;
 	for(i=0; i<numblinks; i++)
 	{
-		HAL_GPIO_WritePin(LED_BLUE, 1);
+		HAL_GPIO_WritePin(LED_BLUE, LED_ON);
 		HAL_Delay(100);
-		HAL_GPIO_WritePin(LED_BLUE, 0);
+		HAL_GPIO_WritePin(LED_BLUE, LED_OFF);
 		HAL_Delay(100);
 	}
 }
@@ -85,7 +85,7 @@ void led_blue_on(void)
 	// This prevents a solid status LED on a busy canbus
 	if(led_blue_laston == 0 && HAL_GetTick() - led_blue_lastoff > LED_DURATION)
 	{
-		HAL_GPIO_WritePin(LED_BLUE, 1);
+		HAL_GPIO_WritePin(LED_BLUE, LED_ON);
 		led_blue_laston = HAL_GetTick();
 	}
 }
@@ -98,12 +98,13 @@ void led_process(void)
     // If error occurred in the last 2 seconds, override LEDs with blink sequence
     if(error_last_timestamp() > 0 && (HAL_GetTick() - error_last_timestamp() < 2000))
     {
-    	if(HAL_GetTick() - last_errflash > 150)
+		uint32_t currentTime = HAL_GetTick();
+		uint32_t timeDiff = (currentTime >= last_errflash) ? (currentTime - last_errflash) : (UINT32_MAX - last_errflash + 1 + currentTime);
+    	if(timeDiff > 150)
     	{
     		last_errflash = HAL_GetTick();
-			HAL_GPIO_WritePin(LED_BLUE, error_blink_status);
-			HAL_GPIO_WritePin(LED_GREEN, error_blink_status);
-            error_blink_status = !error_blink_status;
+			HAL_GPIO_TogglePin(LED_BLUE);
+			HAL_GPIO_TogglePin(LED_GREEN);
             error_was_indicating = 1;
     	}
     }
@@ -113,14 +114,14 @@ void led_process(void)
         // If we were blinking but no longer are blinking, turn the power LED back on.
         if(error_was_indicating)
         {
-            HAL_GPIO_WritePin(LED_GREEN, 1);
+            HAL_GPIO_WritePin(LED_GREEN, LED_ON);
             error_was_indicating = 0;
         }
         
 		// If LED has been on for long enough, turn it off
 		if(led_blue_laston > 0 && HAL_GetTick() - led_blue_laston > LED_DURATION)
 		{
-			HAL_GPIO_WritePin(LED_BLUE, 0);
+			HAL_GPIO_WritePin(LED_BLUE, LED_OFF);
 			led_blue_laston = 0;
 			led_blue_lastoff = HAL_GetTick();
 		}
@@ -129,7 +130,7 @@ void led_process(void)
 		if(led_green_laston > 0 && HAL_GetTick() - led_green_laston > LED_DURATION)
 		{
 			// Invert LED
-			HAL_GPIO_WritePin(LED_GREEN, 1);
+			HAL_GPIO_WritePin(LED_GREEN, LED_OFF);
 			led_green_laston = 0;
 			led_green_lastoff = HAL_GetTick();
 		}

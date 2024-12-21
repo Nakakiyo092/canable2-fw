@@ -19,11 +19,13 @@ void error_assert(error_t err)
 	if(err >= ERR_MAX)
 		return;
 
+	uint32_t currentTime = HAL_GetTick();
+
     // Record time at which error was reported
-	err_time[err] = HAL_GetTick();
+	err_time[err] = currentTime;
     
     // Record time of latest error that occurred
-    err_last_time = HAL_GetTick(); 
+    err_last_time = currentTime; 
     
     // Set error bit in register
 	err_reg |= (1 << err);
