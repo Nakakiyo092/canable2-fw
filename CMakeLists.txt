@@ -32,19 +32,19 @@ message(STATUS "TARGET name: ${TARGET}")
 set(MAIN_CMAKETXT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 # specify cross compilers and tools
-set(COMPIL_PATH "")
+set(COMPIL_PATH "C:/Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/bin/")
 set(COMPIL_PREFIX "arm-none-eabi-")
-set(CMAKE_C_COMPILER ${COMPIL_PATH}${COMPIL_PREFIX}gcc)
-set(CMAKE_CXX_COMPILER ${COMPIL_PATH}${COMPIL_PREFIX}g++)
-set(CMAKE_ASM_COMPILER ${COMPIL_PATH}${COMPIL_PREFIX}gcc)
-set(CMAKE_AR ${COMPIL_PATH}${COMPIL_PREFIX}ar)
-set(CMAKE_OBJCOPY ${COMPIL_PATH}${COMPIL_PREFIX}objcopy)
-set(CMAKE_OBJDUMP ${COMPIL_PATH}${COMPIL_PREFIX}objdump)
-set(SIZE ${COMPIL_PATH}${COMPIL_PREFIX}size)
+set(CMAKE_C_COMPILER ${COMPIL_PATH}${COMPIL_PREFIX}gcc.exe)
+set(CMAKE_CXX_COMPILER ${COMPIL_PATH}${COMPIL_PREFIX}g++.exe)
+set(CMAKE_ASM_COMPILER ${COMPIL_PATH}${COMPIL_PREFIX}gcc.exe)
+set(CMAKE_AR ${COMPIL_PATH}${COMPIL_PREFIX}ar.exe)
+set(CMAKE_OBJCOPY ${COMPIL_PATH}${COMPIL_PREFIX}objcopy.exe)
+set(CMAKE_OBJDUMP ${COMPIL_PATH}${COMPIL_PREFIX}objdump.exe)
+set(SIZE ${COMPIL_PATH}${COMPIL_PREFIX}size.exe)
 # skip compiler checks
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-set(CMAKE_FIND_ROOT_PATH "/usr/local/arm/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi")
+set(CMAKE_FIND_ROOT_PATH "C:/Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
@@ -98,7 +98,7 @@ include_directories(
     ${INCLUDE_PATH}
 )
 
-aux_source_directory(${MAIN_CMAKETXT_PATH}/Drivers/STM32G4xx_HAL_Driver/Src HAL_DRIVER)
+aux_source_directory(${MAIN_CMAKETXT_PATH}/drivers/STM32G4xx_HAL_Driver/Src HAL_DRIVER)
 aux_source_directory(${MAIN_CMAKETXT_PATH}/src MAIN)
 set(USB_MID_PATH "${MAIN_CMAKETXT_PATH}/Middlewares/ST/STM32_USB_Device_Library")
 list(
