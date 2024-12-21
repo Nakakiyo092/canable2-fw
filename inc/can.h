@@ -21,6 +21,7 @@ enum can_bitrate {
 
 // CANFD bitrates
 enum can_data_bitrate {
+    CAN_DATA_BITRATE_500K = 0,
     CAN_DATA_BITRATE_2M = 2,
     CAN_DATA_BITRATE_5M = 5,
 
