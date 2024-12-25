@@ -17,7 +17,9 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `S8` - Set nominal bitrate to 1M
 - `S9` - Set nominal bitrate to 83.3k
 - `Y0` - Set data bitrate to 500k (CANFD only)
+- `Y1` - Set data bitrate to 1M (CANFD only)
 - `Y2` - Set data bitrate to 2M (CANFD only) (default)
+- `Y4` - Set data bitrate to 4M (CANFD only)
 - `Y5` - Set data bitrate to 5M (CANFD only)
 - `M0` - Set mode to normal mode (default)
 - `M1` - Set mode to silent mode
@@ -47,8 +49,6 @@ Note: CANFD message lengths are as follows (expressed in hexadecimal):
 - `F`: Length = 64
 
 Note: Channel configuration commands must be sent before opening the channel. The channel must be opened before transmitting frames.
-
-This firmware currently does not provide any ACK/NACK feedback for serial commands.
 
 ## Building
 
