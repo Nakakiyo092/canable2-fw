@@ -40,14 +40,6 @@ void can_init(void)
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
 
-    GPIO_InitStruct.Pin = GPIO_PIN_0;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 0); // CAN Standby - turn standby off (hw pull hi)
-
-
     GPIO_InitStruct.Pin = GPIO_PIN_13;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_PULLDOWN;
@@ -147,7 +139,7 @@ void can_disable(void)
         HAL_FDCAN_DeInit(&can_handle);
         bus_state = OFF_BUS;
 
-        led_green_on();
+        HAL_GPIO_WritePin(LED_GREEN, LED_ON);
     }
 }
 
