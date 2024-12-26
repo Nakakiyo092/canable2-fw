@@ -205,6 +205,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
             }
 
         // FIXME: Nonstandard!
+        // TODO: Make L instead
         case 'M':
             // Set mode command
             if (buf[1] == 1)
@@ -364,7 +365,10 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     // Transmit the message
     can_tx(&frame_header, frame_data);
 
-    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    char repstr[64] = {0};
+    if (frame_header.IdType == FDCAN_EXTENDED_ID) snprintf_(repstr, 64, "Z\r");
+    else snprintf_(repstr, 64, "z\r");
+    cdc_transmit((uint8_t*)repstr, strlen(repstr));
     return 0;
 }
 
