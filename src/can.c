@@ -81,7 +81,7 @@ void can_init(void)
 
 
 // Start the CAN peripheral
-void can_enable(void)
+enum can_result can_enable(void)
 {
     if (bus_state == OFF_BUS)
     {
@@ -126,12 +126,15 @@ void can_enable(void)
         bus_state = ON_BUS;
 
         led_blue_on();
+        
+        return CAN_OK;
     }
+    return CAN_ERR;
 }
 
 
 // Disable the CAN peripheral and go off-bus
-void can_disable(void)
+enum can_result can_disable(void)
 {
     if (bus_state == ON_BUS)
     {
@@ -140,16 +143,20 @@ void can_disable(void)
         bus_state = OFF_BUS;
 
         HAL_GPIO_WritePin(LED_GREEN, LED_ON);
+
+        return CAN_OK;
     }
+    return CAN_ERR;
 }
 
 
-void can_set_data_bitrate(enum can_data_bitrate bitrate)
+// Set the data bitrate of the CAN peripheral
+enum can_result can_set_data_bitrate(enum can_data_bitrate bitrate)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
-        return;
+        return CAN_ERR;
     }
 
     switch (bitrate)
@@ -189,15 +196,16 @@ void can_set_data_bitrate(enum can_data_bitrate bitrate)
 
     led_green_on();
     
+    return CAN_OK;
 }
 
-// Set the bitrate of the CAN peripheral
-void can_set_bitrate(enum can_bitrate bitrate)
+// Set the nominal bitrate of the CAN peripheral
+enum can_result can_set_bitrate(enum can_bitrate bitrate)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
-        return;
+        return CAN_ERR;
     }
 
     switch (bitrate)
@@ -267,16 +275,18 @@ void can_set_bitrate(enum can_bitrate bitrate)
     }
 
     led_green_on();
+    
+    return CAN_OK;
 }
 
 
 // Set CAN peripheral to silent mode
-void can_set_silent(uint8_t silent)
+enum can_result can_set_silent(uint8_t silent)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set silent mode while on bus
-        return;
+        return CAN_ERR;
     }
     if (silent)
     {
@@ -286,6 +296,8 @@ void can_set_silent(uint8_t silent)
     }
 
     led_green_on();
+    
+    return CAN_OK;
 }
 
 
