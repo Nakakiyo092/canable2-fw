@@ -15,7 +15,7 @@
 #define SLCAN_RET_LEN   1
 
 // Private variables
-char* fw_id = GIT_VERSION " " GIT_REMOTE "\r";
+char* fw_id = "VL2K0 " GIT_VERSION " " GIT_REMOTE "\r";
 
 
 // Private methods
