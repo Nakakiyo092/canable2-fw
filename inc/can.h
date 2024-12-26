@@ -38,6 +38,13 @@ enum can_bus_state {
 };
 
 
+// Result
+enum can_result {
+    CAN_OK,
+    CAN_ERR
+};
+
+
 // CAN transmit buffering
 #define TXQUEUE_LEN 64 // Number of buffers allocated
 #define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
@@ -56,11 +63,11 @@ typedef struct cantxbuf_
 
 // Prototypes
 void can_init(void);
-void can_enable(void);
-void can_disable(void);
-void can_set_bitrate(enum can_bitrate bitrate);
-void can_set_data_bitrate(enum can_data_bitrate bitrate);
-void can_set_silent(uint8_t silent);
+enum can_result can_enable(void);
+enum can_result can_disable(void);
+enum can_result can_set_bitrate(enum can_bitrate bitrate);
+enum can_result can_set_data_bitrate(enum can_data_bitrate bitrate);
+enum can_result can_set_silent(uint8_t silent);
 void can_set_autoretransmit(uint8_t autoretransmit);
 uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data);
 uint32_t can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data);

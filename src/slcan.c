@@ -135,9 +135,10 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     };
     uint8_t frame_data[64] = {0};
 
-    // Ignore a blank command
+    // Reply OK to a blank command
     if (len == 0)
     {
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         return 0;
     }
 
@@ -161,14 +162,14 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     {
         // Open channel
         case 'O':
-            can_enable();
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_enable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return 0;
 
         // Close channel
         case 'C':
-            can_disable();
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_disable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return 0;
 
         // Set nominal bitrate
@@ -181,8 +182,8 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
                 return -1;
             }
 
-            can_set_bitrate(buf[1]);
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_set_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return 0;
 
         // Set data bitrate
@@ -194,8 +195,8 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
                 case CAN_DATA_BITRATE_2M:
                 case CAN_DATA_BITRATE_4M:
                 case CAN_DATA_BITRATE_5M:
-                    can_set_data_bitrate(buf[1]);
-                    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+                    if (can_set_data_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+                    else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                     return 0;
                 default:
                     // Invalid bitrate
@@ -204,17 +205,18 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
             }
 
         // FIXME: Nonstandard!
+        // TODO: Make L instead
         case 'M':
             // Set mode command
             if (buf[1] == 1)
             {
                 // Mode 1: silent
-                can_set_silent(1);
+                //can_set_silent(1);
             } else {
                 // Default to normal mode
-                can_set_silent(0);
+                //can_set_silent(0);
             }
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return 0;
 
 
@@ -363,7 +365,10 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     // Transmit the message
     can_tx(&frame_header, frame_data);
 
-    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    char repstr[64] = {0};
+    if (frame_header.IdType == FDCAN_EXTENDED_ID) snprintf_(repstr, 64, "Z\r");
+    else snprintf_(repstr, 64, "z\r");
+    cdc_transmit((uint8_t*)repstr, strlen(repstr));
     return 0;
 }
 
