@@ -191,6 +191,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
 
             // Check for valid bitrate
             switch (buf[1]) {
+                case CAN_DATA_BITRATE_500K:
                 case CAN_DATA_BITRATE_1M:
                 case CAN_DATA_BITRATE_2M:
                 case CAN_DATA_BITRATE_4M:
