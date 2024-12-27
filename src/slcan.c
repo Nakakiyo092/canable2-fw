@@ -194,7 +194,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Close channel
         case 'C':
-            if (can_disable() != CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_disable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
 
