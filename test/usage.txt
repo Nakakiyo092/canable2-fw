@@ -8,12 +8,12 @@
 ### TODO
 
 Debug response to SEND command
-	Fix ACK during CAN port closed
-	Fix ACK during CAN silent mode
-	Unable to send remote flame with DLC > 8
-	Check length to detect command too short
-	Check inavalid character
-	Check if ID value is in range
+	X Fix ACK during CAN port closed
+	X Fix ACK during CAN silent mode
+	? Unable to send remote flame with DLC > 8
+	X Check length to detect command too short
+	X Check inavalid character
+	? Check if ID value is in range
 	
 
 ### Reference

@@ -145,15 +145,21 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Convert from ASCII (2nd character to end)
     for (uint8_t i = 1; i < len; i++)
     {
+        // Numbers
+        if('0' <= buf[i] && buf[i] <= '9')
+            buf[i] = buf[i] - '0';
         // Lowercase letters
-        if(buf[i] >= 'a')
+        else if('a' <= buf[i] && buf[i] <= 'f')
             buf[i] = buf[i] - 'a' + 10;
         // Uppercase letters
-        else if(buf[i] >= 'A')
+        else if('A' <= buf[i] && buf[i] <= 'F')
             buf[i] = buf[i] - 'A' + 10;
-        // Numbers
+        // Invalid character
         else
-            buf[i] = buf[i] - '0';
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
     }
 
 
@@ -163,13 +169,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Open channel (normal mode)
         case 'O':
             // Default to normal mode
-            if (can_set_silent(0) != CAN_OK)
+            if (can_set_silent(0) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
             // Open CAN port
-            if (can_enable() != CAN_OK){
+            if (can_enable() != HAL_OK){
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
@@ -179,13 +185,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Open channel (silent mode)
         case 'L':
             // Mode 1: silent
-            if (can_set_silent(1) != CAN_OK)
+            if (can_set_silent(1) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
             // Open CAN port
-            if (can_enable() != CAN_OK){
+            if (can_enable() != HAL_OK){
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
@@ -194,7 +200,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Close channel
         case 'C':
-            if (can_disable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_disable() == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
 
@@ -208,7 +214,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
                 return;
             }
 
-            if (can_set_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_set_bitrate(buf[1]) == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
 
@@ -222,7 +228,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
                 case CAN_DATA_BITRATE_2M:
                 case CAN_DATA_BITRATE_4M:
                 case CAN_DATA_BITRATE_5M:
-                    if (can_set_data_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+                    if (can_set_data_bitrate(buf[1]) == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
                     else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                     return;
                 default:
@@ -373,14 +379,29 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         frame_data[i] = (buf[parse_loc] << 4) + buf[parse_loc+1];
         parse_loc += 2;
     }
+    
+    // Check command length
+    // parse_loc is always updated after a byte is parsed
+    if (len < parse_loc)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }    
 
     // Transmit the message
-    can_tx(&frame_header, frame_data);
-
-    char repstr[64] = {0};
-    if (frame_header.IdType == FDCAN_EXTENDED_ID) snprintf_(repstr, 64, "Z\r");
-    else snprintf_(repstr, 64, "z\r");
-    cdc_transmit((uint8_t*)repstr, strlen(repstr));
+    if (can_tx(&frame_header, frame_data) == HAL_OK)
+    {
+        char repstr[64] = {0};
+        if (frame_header.IdType == FDCAN_EXTENDED_ID) snprintf_(repstr, 64, "Z\r");
+        else snprintf_(repstr, 64, "z\r");
+        cdc_transmit((uint8_t*)repstr, strlen(repstr));
+    }
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    
     return;
 }
 
