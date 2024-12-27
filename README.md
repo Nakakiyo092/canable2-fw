@@ -4,7 +4,8 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 
 ## Supported Commands
 
-- `O` - Open channel
+- `O` - Open channel in normal mode
+- `L` - Open channel in silent mode
 - `C` - Close channel
 - `S0` - Set nominal bitrate to 10k
 - `S1` - Set nominal bitrate to 20k
@@ -21,8 +22,6 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `Y2` - Set data bitrate to 2M (CANFD only) (default)
 - `Y4` - Set data bitrate to 4M (CANFD only)
 - `Y5` - Set data bitrate to 5M (CANFD only)
-- `M0` - Set mode to normal mode (default)
-- `M1` - Set mode to silent mode
 - `A0` - Disable automatic retransmission
 - `A1` - Enable automatic retransmission (default)
 - `tIIILDD...` - Transmit data frame (Standard ID) [ID, length, data]
