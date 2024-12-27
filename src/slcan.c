@@ -379,6 +379,14 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         frame_data[i] = (buf[parse_loc] << 4) + buf[parse_loc+1];
         parse_loc += 2;
     }
+    
+    // Check command length
+    // parse_loc is always updated after a byte is parsed
+    if (len < parse_loc)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }    
 
     // Transmit the message
     if (can_tx(&frame_header, frame_data) == HAL_OK)

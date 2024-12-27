@@ -273,27 +273,19 @@ class SlcanTestCase(unittest.TestCase):
 
         for cmd in cmd_send_std:
             self.send(cmd + b"03F\r")
-            #self.assertEqual(self.receive(), b"\a")
-            # FIXME no check for command too short
-            self.receive()
+            self.assertEqual(self.receive(), b"\a")
 
         for cmd in cmd_send_std:
             self.send(cmd + b"03F1\r")
-            #self.assertEqual(self.receive(), b"\a")
-            # FIXME
-            self.receive()
+            self.assertEqual(self.receive(), b"\a")
 
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC8\r")
-            #self.assertEqual(self.receive(), b"\a")
-            # FIXME
-            self.receive()
+            self.assertEqual(self.receive(), b"\a")
 
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC81\r")
-            #self.assertEqual(self.receive(), b"\a")
-            # FIXME
-            self.receive()
+            self.assertEqual(self.receive(), b"\a")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
