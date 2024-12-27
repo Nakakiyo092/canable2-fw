@@ -301,7 +301,7 @@ enum can_result can_set_silent(uint8_t silent)
 }
 
 
-// Set CAN peripheral to silent mode
+// Set CAN peripheral to autoretransmit mode
 void can_set_autoretransmit(uint8_t autoretransmit)
 {
     if (bus_state == ON_BUS)
@@ -320,42 +320,48 @@ void can_set_autoretransmit(uint8_t autoretransmit)
 }
 
 
-
 // Send a message on the CAN bus. Called from USB ISR.
 uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t* tx_msg_data)
 {
-    // If when we increment the head we're going to hit the tail
-    // (if we're filling the last spot in the queue)
-    if( ((txqueue.head + 1) % TXQUEUE_LEN) == txqueue.tail)
+    if (bus_state == ON_BUS && can_handle.Init.Mode = FDCAN_MODE_NORMAL)
     {
-        error_assert(ERR_FULLBUF_CANTX);
+        // If when we increment the head we're going to hit the tail
+        // (if we're filling the last spot in the queue)
+        if( ((txqueue.head + 1) % TXQUEUE_LEN) == txqueue.tail)
+        {
+            error_assert(ERR_FULLBUF_CANTX);
+            return HAL_ERROR;
+        }
+
+        // Convert length to bytes
+        uint32_t len = hal_dlc_code_to_bytes(tx_msg_header->DataLength);
+
+        // Don't overrun buffer element max length
+        if(len > TXQUEUE_DATALEN)
+            return HAL_ERROR;
+
+        // Save the header to the circular buffer
+        txqueue.header[txqueue.head] = *tx_msg_header;
+
+        // Copy the data to the circular buffer
+        for(uint8_t i=0; i<len; i++)
+        {
+            txqueue.data[txqueue.head][i] = tx_msg_data[i];
+        }
+
+        // Increment the head pointer
+        txqueue.head = (txqueue.head + 1) % TXQUEUE_LEN;
+    }
+    else
+    {
         return HAL_ERROR;
     }
-
-    // Convert length to bytes
-    uint32_t len = hal_dlc_code_to_bytes(tx_msg_header->DataLength);
-
-    // Don't overrun buffer element max length
-    if(len > TXQUEUE_DATALEN)
-        return HAL_ERROR;
-
-    // Save the header to the circular buffer
-    txqueue.header[txqueue.head] = *tx_msg_header;
-
-    // Copy the data to the circular buffer
-    for(uint8_t i=0; i<len; i++)
-    {
-        txqueue.data[txqueue.head][i] = tx_msg_data[i];
-    }
-
-    // Increment the head pointer
-    txqueue.head = (txqueue.head + 1) % TXQUEUE_LEN;
 
     return HAL_OK;
 }
 
 
-// Process data from CAN tx/rx circular buffers
+// Process data from CAN tx /rx? circular buffers
 void can_process(void)
 {
     while((txqueue.tail != txqueue.head) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
