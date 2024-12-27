@@ -24,10 +24,10 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `Y5` - Set data bitrate to 5M
 - `A0` - Disable automatic retransmission
 - `A1` - Enable automatic retransmission (default)
+- `rIIIL` - Transmit remote frame (Standard ID) [ID, length]
+- `RIIIIIIIIL` - Transmit remote frame (Extended ID) [ID, length]
 - `tIIILDD...` - Transmit data frame (Standard ID) [ID, length, data]
 - `TIIIIIIIILDD...` - Transmit data frame (Extended ID) [ID, length, data]
-- `RIIIIIIIIL` - Transmit remote frame (Extended ID) [ID, length]
-- `rIIIL` - Transmit remote frame (Standard ID) [ID, length]
 - `dIIILDD...` - Transmit CAN FD standard ID (no BRS) [ID, length, data]
 - `DIIIIIIIILDD...` - Transmit CAN FD extended ID (no BRS) [ID, length, data]
 - `bIIILDD...` - Transmit CAN FD BRS standard ID [ID, length, data]
