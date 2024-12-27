@@ -89,7 +89,7 @@ enum can_result can_enable(void)
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
 
-        can_handle.Init.Mode = FDCAN_MODE_NORMAL;
+        //can_handle.Init.Mode = FDCAN_MODE_NORMAL;
         can_handle.Init.AutoRetransmission = can_autoretransmit;
         can_handle.Init.TransmitPause = DISABLE; // emz
         can_handle.Init.ProtocolException = DISABLE; // emz
