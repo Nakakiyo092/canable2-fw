@@ -174,7 +174,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
                 return;
             }
             cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            return 0;
+            return;
 
         // Open channel (silent mode)
         case 'L':
@@ -317,7 +317,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Invalid command
         default:
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return -1;
+            return;
     }
 
     // Start parsing at second byte (skip command byte)
