@@ -120,7 +120,7 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
 
 
 // Parse an incoming slcan command from the USB CDC port
-int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
+void slcan_parse_str(uint8_t *buf, uint8_t len)
 {
     // Set default header. All values overridden below as needed.
     FDCAN_TxHeaderTypeDef frame_header =
@@ -139,7 +139,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     if (len == 0)
     {
         cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return 0;
+        return;
     }
 
     // Convert from ASCII (2nd character to end)
@@ -166,12 +166,12 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
             if (can_set_silent(0) != CAN_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                return -1;
+                return;
             }
             // Open CAN port
             if (can_enable() != CAN_OK){
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                return -1;
+                return;
             }
             cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             return 0;
@@ -182,21 +182,21 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
             if (can_set_silent(1) != CAN_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                return -1;
+                return;
             }
             // Open CAN port
             if (can_enable() != CAN_OK){
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                return -1;
+                return;
             }
             cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            return 0;
+            return;
 
         // Close channel
         case 'C':
             if (can_disable() != CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return 0;
+            return;
 
         // Set nominal bitrate
         case 'S':
@@ -205,12 +205,12 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
             if(buf[1] >= CAN_BITRATE_INVALID)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                return -1;
+                return;
             }
 
             if (can_set_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return 0;
+            return;
 
         // Set data bitrate
         case 'Y':
@@ -224,11 +224,11 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
                 case CAN_DATA_BITRATE_5M:
                     if (can_set_data_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
                     else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                    return 0;
+                    return;
                 default:
                     // Invalid bitrate
                     cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                    return -1;
+                    return;
             }
 
 
@@ -244,7 +244,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
                 can_set_autoretransmit(DISABLE);
             }
             cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            return 0;
+            return;
 
 
         // FIXME: Nonstandard!
@@ -252,7 +252,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
         {
             // Report firmware version and remote
             cdc_transmit((uint8_t*)fw_id, strlen(fw_id));
-            return 0;
+            return;
         }
 
         // FIXME: Nonstandard!
@@ -262,7 +262,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
             char errstr[64] = {0};
             snprintf_(errstr, 64, "CANable Error Register: %X", (unsigned int)error_reg());
             cdc_transmit((uint8_t*)errstr, strlen(errstr));
-            return 0;
+            return;
         }
         
 
@@ -347,12 +347,12 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     if(frame_header.FDFormat == FDCAN_FD_CAN && dlc_code_raw > 0xF)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return -1;
+        return;
     }
     if(frame_header.FDFormat == FDCAN_CLASSIC_CAN && dlc_code_raw > 0x8)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return -1;
+        return;
     }
 
     // Set TX frame DLC according to HAL
@@ -363,7 +363,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
 
     if ((bytes_in_msg < 0) || (bytes_in_msg > 64)) {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return -1;
+        return;
     }
 
     // Parse data
@@ -381,7 +381,7 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     if (frame_header.IdType == FDCAN_EXTENDED_ID) snprintf_(repstr, 64, "Z\r");
     else snprintf_(repstr, 64, "z\r");
     cdc_transmit((uint8_t*)repstr, strlen(repstr));
-    return 0;
+    return;
 }
 
 
