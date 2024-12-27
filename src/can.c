@@ -81,7 +81,7 @@ void can_init(void)
 
 
 // Start the CAN peripheral
-enum can_result can_enable(void)
+uint32_t can_enable(void)
 {
     if (bus_state == OFF_BUS)
     {
@@ -127,14 +127,14 @@ enum can_result can_enable(void)
 
         led_blue_on();
         
-        return CAN_OK;
+        return HAL_OK;
     }
-    return CAN_ERR;
+    return HAL_ERROR;
 }
 
 
 // Disable the CAN peripheral and go off-bus
-enum can_result can_disable(void)
+uint32_t can_disable(void)
 {
     if (bus_state == ON_BUS)
     {
@@ -144,19 +144,19 @@ enum can_result can_disable(void)
 
         HAL_GPIO_WritePin(LED_GREEN, LED_ON);
 
-        return CAN_OK;
+        return HAL_OK;
     }
-    return CAN_ERR;
+    return HAL_ERROR;
 }
 
 
 // Set the data bitrate of the CAN peripheral
-enum can_result can_set_data_bitrate(enum can_data_bitrate bitrate)
+uint32_t can_set_data_bitrate(enum can_data_bitrate bitrate)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
-        return CAN_ERR;
+        return HAL_ERROR;
     }
 
     switch (bitrate)
@@ -196,16 +196,16 @@ enum can_result can_set_data_bitrate(enum can_data_bitrate bitrate)
 
     led_green_on();
     
-    return CAN_OK;
+    return HAL_OK;
 }
 
 // Set the nominal bitrate of the CAN peripheral
-enum can_result can_set_bitrate(enum can_bitrate bitrate)
+uint32_t can_set_bitrate(enum can_bitrate bitrate)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
-        return CAN_ERR;
+        return HAL_ERROR;
     }
 
     switch (bitrate)
@@ -276,17 +276,17 @@ enum can_result can_set_bitrate(enum can_bitrate bitrate)
 
     led_green_on();
     
-    return CAN_OK;
+    return HAL_OK;
 }
 
 
 // Set CAN peripheral to silent mode
-enum can_result can_set_silent(uint8_t silent)
+uint32_t can_set_silent(uint8_t silent)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set silent mode while on bus
-        return CAN_ERR;
+        return HAL_ERROR;
     }
     if (silent)
     {
@@ -297,7 +297,7 @@ enum can_result can_set_silent(uint8_t silent)
 
     led_green_on();
     
-    return CAN_OK;
+    return HAL_OK;
 }
 
 
@@ -323,7 +323,7 @@ void can_set_autoretransmit(uint8_t autoretransmit)
 // Send a message on the CAN bus. Called from USB ISR.
 uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t* tx_msg_data)
 {
-    if (bus_state == ON_BUS && can_handle.Init.Mode = FDCAN_MODE_NORMAL)
+    if (bus_state == ON_BUS && can_handle.Init.Mode == FDCAN_MODE_NORMAL)
     {
         // If when we increment the head we're going to hit the tail
         // (if we're filling the last spot in the queue)

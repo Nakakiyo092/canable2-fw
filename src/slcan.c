@@ -163,13 +163,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Open channel (normal mode)
         case 'O':
             // Default to normal mode
-            if (can_set_silent(0) != CAN_OK)
+            if (can_set_silent(0) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
             // Open CAN port
-            if (can_enable() != CAN_OK){
+            if (can_enable() != HAL_OK){
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
@@ -179,13 +179,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Open channel (silent mode)
         case 'L':
             // Mode 1: silent
-            if (can_set_silent(1) != CAN_OK)
+            if (can_set_silent(1) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
             // Open CAN port
-            if (can_enable() != CAN_OK){
+            if (can_enable() != HAL_OK){
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
@@ -194,7 +194,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Close channel
         case 'C':
-            if (can_disable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_disable() == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
 
@@ -208,7 +208,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
                 return;
             }
 
-            if (can_set_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_set_bitrate(buf[1]) == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
 
@@ -222,7 +222,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
                 case CAN_DATA_BITRATE_2M:
                 case CAN_DATA_BITRATE_4M:
                 case CAN_DATA_BITRATE_5M:
-                    if (can_set_data_bitrate(buf[1]) == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+                    if (can_set_data_bitrate(buf[1]) == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
                     else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                     return;
                 default:
