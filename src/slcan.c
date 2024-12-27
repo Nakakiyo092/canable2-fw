@@ -160,15 +160,41 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
     // Handle each incoming command
     switch(buf[0])
     {
-        // Open channel
+        // Open channel (normal mode)
         case 'O':
-            if (can_enable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            // Default to normal mode
+            if (can_set_silent(0) != CAN_OK)
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return -1;
+            }
+            // Open CAN port
+            if (can_enable() != CAN_OK){
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return -1;
+            }
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return 0;
+
+        // Open channel (silent mode)
+        case 'L':
+            // Mode 1: silent
+            if (can_set_silent(1) != CAN_OK)
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return -1;
+            }
+            // Open CAN port
+            if (can_enable() != CAN_OK){
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return -1;
+            }
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             return 0;
 
         // Close channel
         case 'C':
-            if (can_disable() == CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            if (can_disable() != CAN_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return 0;
 
@@ -204,21 +230,6 @@ int32_t slcan_parse_str(uint8_t *buf, uint8_t len)
                     cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                     return -1;
             }
-
-        // FIXME: Nonstandard!
-        // TODO: Make L instead
-        case 'M':
-            // Set mode command
-            if (buf[1] == 1)
-            {
-                // Mode 1: silent
-                //can_set_silent(1);
-            } else {
-                // Default to normal mode
-                //can_set_silent(0);
-            }
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return 0;
 
 
         // FIXME: Nonstandard!
