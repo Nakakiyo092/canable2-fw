@@ -145,15 +145,21 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Convert from ASCII (2nd character to end)
     for (uint8_t i = 1; i < len; i++)
     {
+        // Numbers
+        if('0' <= buf[i] && buf[i] <= '9')
+            buf[i] = buf[i] - '0';
         // Lowercase letters
-        if(buf[i] >= 'a')
+        else if('a' <= buf[i] && buf[i] <= 'f')
             buf[i] = buf[i] - 'a' + 10;
         // Uppercase letters
-        else if(buf[i] >= 'A')
+        else if('A' <= buf[i] && buf[i] <= 'F')
             buf[i] = buf[i] - 'A' + 10;
-        // Numbers
+        // Invalid character
         else
-            buf[i] = buf[i] - '0';
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
     }
 
 
