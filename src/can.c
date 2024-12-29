@@ -322,7 +322,7 @@ void can_set_autoretransmit(uint8_t autoretransmit)
 // Send a message on the CAN bus. Called from USB ISR.
 uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t* tx_msg_data)
 {
-    if (bus_state == ON_BUS && can_handle.Init.Mode == FDCAN_MODE_NORMAL)
+    if (bus_state == ON_BUS && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING)
     {
         // If when we increment the head we're going to hit the tail
         // (if we're filling the last spot in the queue)
