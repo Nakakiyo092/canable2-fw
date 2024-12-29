@@ -145,8 +145,9 @@ class ErrorTestCase(unittest.TestCase):
 
         # the buffer can store as least 100 messages (2048 / 22)
         for i in range(0, 100):
-            self.send(b"t03F80011223344556677\r")
-            self.assertEqual(self.receive(), b"z\r")
+            tx_data = b"t03F80011223344556677\r"
+            self.send(tx_data)
+            self.assertEqual(self.receive(), b"z\r" + tx_data)
 
         # confirm no error
         self.send(b"F\r")
@@ -155,7 +156,16 @@ class ErrorTestCase(unittest.TestCase):
         # the buffer can not store additional 100 messages
         for i in range(0, 100):
             self.send(b"t03F80011223344556677\r")
-            self.assertEqual(self.receive(), b"z\r")    # able to tx unbale to rx
+            self.receive()
+
+        # check error
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F02\r")
+
+        # the buffer can not store anymore messages
+        for i in range(0, 100):
+            self.send(b"t03F80011223344556677\r")
+            self.assertEqual(self.receive(), b"z\r")
 
         # check error
         self.send(b"F\r")
