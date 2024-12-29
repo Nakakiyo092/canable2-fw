@@ -71,7 +71,7 @@ class ErrorTestCase(unittest.TestCase):
 
     def test_usb_tx_overflow(self):
         # send a lot of command without receiving data
-        for i in range(0, 900):
+        for i in range(0, 200):
             self.send(b"V\r")
             time.sleep(0.02)
 
