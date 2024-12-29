@@ -304,13 +304,6 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         }
         
 
-        // Transmit data frame command
-        case 'T':
-            frame_header.IdType = FDCAN_EXTENDED_ID;
-            break;
-        case 't':
-            break;
-
         // Transmit remote frame command
         case 'r':
             frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
@@ -320,7 +313,12 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
             frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
             break;
 
-
+        // Transmit data frame command
+        case 'T':
+            frame_header.IdType = FDCAN_EXTENDED_ID;
+            break;
+        case 't':
+            break;
 
         // CANFD transmit - no BRS
         case 'd':
@@ -382,6 +380,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     uint8_t dlc_code_raw = buf[parse_loc++];
 
     // If dlc is too long for an FD frame
+    // TODO check CAN protocol if a remote frame is allowed to have a DLC > 8
     if(frame_header.FDFormat == FDCAN_FD_CAN && dlc_code_raw > 0xF)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
@@ -405,11 +404,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     }
 
     // Parse data
-    // TODO: Guard against walking off the end of the string!
-    for (uint8_t i = 0; i < bytes_in_msg; i++)
+    // Data frame only. No data bytes for a remote frame.
+    if (frame_header.TxFrameType != FDCAN_REMOTE_FRAME) 
     {
-        frame_data[i] = (buf[parse_loc] << 4) + buf[parse_loc+1];
-        parse_loc += 2;
+        // TODO: Guard against walking off the end of the string!
+        for (uint8_t i = 0; i < bytes_in_msg; i++)
+        {
+            frame_data[i] = (buf[parse_loc] << 4) + buf[parse_loc+1];
+            parse_loc += 2;
+        }
     }
     
     // Check command length

@@ -38,8 +38,10 @@ class ErrorTestCase(unittest.TestCase):
         datar = datar.replace(b"\r", b"[CR]")
         datar = datar.replace(b"\a", b"[BELL]")
         if dir == "t" or dir == "T":
+            print("")
             print("<<< ", datar.decode())
         else:
+            print("")
             print(">>> ", datar.decode())
 
 
