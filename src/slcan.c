@@ -172,6 +172,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     {
         // Open channel (normal mode)
         case 'O':
+            error_clear();
             // Default to normal mode
             if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
             {
@@ -188,6 +189,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Open channel (silent mode)
         case 'L':
+            error_clear();
             // Mode silent
             if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
             {
@@ -204,6 +206,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Open channel (in loopback mode)
         case '=':
+            error_clear();
             // Mode loopback
             if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
             {
@@ -220,6 +223,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Open channel (ex loopback mode)
         case '+':
+            error_clear();
             // Mode loopback
             if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
             {
@@ -238,6 +242,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         case 'C':
             if (can_disable() == HAL_OK) cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             else cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            error_clear();
             return;
 
         // Set nominal bitrate

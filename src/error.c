@@ -66,3 +66,10 @@ uint32_t error_reg(void)
 {
 	return err_reg;
 }
+
+
+// Clear all error
+void error_clear(void)
+{
+	err_reg = 0;
+}
