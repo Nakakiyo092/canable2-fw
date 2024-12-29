@@ -96,7 +96,7 @@ void led_process(void)
 {
 
     // If error occurred in the last 2 seconds, override LEDs with blink sequence
-    if(error_last_timestamp() > 0 && (HAL_GetTick() - error_get_last_timestamp() < 2000))
+    if(error_get_last_timestamp() > 0 && (HAL_GetTick() - error_get_last_timestamp() < 2000))
     {
 		uint32_t currentTime = HAL_GetTick();
 		uint32_t timeDiff = (currentTime >= last_errflash) ? (currentTime - last_errflash) : (UINT32_MAX - last_errflash + 1 + currentTime);
