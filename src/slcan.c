@@ -96,7 +96,7 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
 
     // Add data bytes
     // Data frame only. No data bytes for a remote frame.
-    if (frame_header.TxFrameType != FDCAN_REMOTE_FRAME) 
+    if (frame_header->TxFrameType != FDCAN_REMOTE_FRAME) 
     {
         for (uint8_t j = 0; j < bytes; j++)
         {
