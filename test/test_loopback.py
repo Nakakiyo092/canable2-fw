@@ -108,7 +108,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"z\r" + tx_data)
 
         # FIXME unable to send DLC > 8
-        tx_data = b"R0137FEC8F\r"
+        tx_data = b"R0137FEC88\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"Z\r" + tx_data)
 
@@ -165,7 +165,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"z\r" + tx_data)
 
         # FIXME unable to send DLC > 8
-        tx_data = b"R0137FEC8F\r"
+        tx_data = b"R0137FEC88\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"Z\r" + tx_data)
 
