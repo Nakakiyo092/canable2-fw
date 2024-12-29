@@ -95,10 +95,14 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
         return -1;
 
     // Add data bytes
-    for (uint8_t j = 0; j < bytes; j++)
+    // Data frame only. No data bytes for a remote frame.
+    if (frame_header->RxFrameType != FDCAN_REMOTE_FRAME) 
     {
-        buf[msg_idx++] = (frame_data[j] >> 4);
-        buf[msg_idx++] = (frame_data[j] & 0x0F);
+        for (uint8_t j = 0; j < bytes; j++)
+        {
+            buf[msg_idx++] = (frame_data[j] >> 4);
+            buf[msg_idx++] = (frame_data[j] & 0x0F);
+        }
     }
 
     // Convert to ASCII (2nd character to end)
@@ -169,7 +173,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Open channel (normal mode)
         case 'O':
             // Default to normal mode
-            if (can_set_silent(0) != HAL_OK)
+            if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
@@ -184,8 +188,40 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Open channel (silent mode)
         case 'L':
-            // Mode 1: silent
-            if (can_set_silent(1) != HAL_OK)
+            // Mode silent
+            if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            // Open CAN port
+            if (can_enable() != HAL_OK){
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
+
+        // Open channel (in loopback mode)
+        case '=':
+            // Mode loopback
+            if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            // Open CAN port
+            if (can_enable() != HAL_OK){
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
+
+        // Open channel (ex loopback mode)
+        case '+':
+            // Mode loopback
+            if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
@@ -272,13 +308,6 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         }
         
 
-        // Transmit data frame command
-        case 'T':
-            frame_header.IdType = FDCAN_EXTENDED_ID;
-            break;
-        case 't':
-            break;
-
         // Transmit remote frame command
         case 'r':
             frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
@@ -288,7 +317,12 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
             frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
             break;
 
-
+        // Transmit data frame command
+        case 'T':
+            frame_header.IdType = FDCAN_EXTENDED_ID;
+            break;
+        case 't':
+            break;
 
         // CANFD transmit - no BRS
         case 'd':
@@ -350,6 +384,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     uint8_t dlc_code_raw = buf[parse_loc++];
 
     // If dlc is too long for an FD frame
+    // TODO check CAN protocol if a remote frame is allowed to have a DLC > 8
     if(frame_header.FDFormat == FDCAN_FD_CAN && dlc_code_raw > 0xF)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
@@ -373,11 +408,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     }
 
     // Parse data
-    // TODO: Guard against walking off the end of the string!
-    for (uint8_t i = 0; i < bytes_in_msg; i++)
+    // Data frame only. No data bytes for a remote frame.
+    if (frame_header.TxFrameType != FDCAN_REMOTE_FRAME) 
     {
-        frame_data[i] = (buf[parse_loc] << 4) + buf[parse_loc+1];
-        parse_loc += 2;
+        // TODO: Guard against walking off the end of the string!
+        for (uint8_t i = 0; i < bytes_in_msg; i++)
+        {
+            frame_data[i] = (buf[parse_loc] << 4) + buf[parse_loc+1];
+            parse_loc += 2;
+        }
     }
     
     // Check command length

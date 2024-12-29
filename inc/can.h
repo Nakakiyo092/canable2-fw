@@ -60,7 +60,7 @@ uint32_t can_enable(void);
 uint32_t can_disable(void);
 uint32_t can_set_bitrate(enum can_bitrate bitrate);
 uint32_t can_set_data_bitrate(enum can_data_bitrate bitrate);
-uint32_t can_set_silent(uint8_t silent);
+uint32_t can_set_mode(uint32_t mode);
 void can_set_autoretransmit(uint8_t autoretransmit);
 uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data);
 uint32_t can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data);

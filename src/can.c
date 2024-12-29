@@ -280,20 +280,19 @@ uint32_t can_set_bitrate(enum can_bitrate bitrate)
 }
 
 
-// Set CAN peripheral to silent mode
-uint32_t can_set_silent(uint8_t silent)
+// Set CAN peripheral to the specific mode
+// normal: FDCAN_MODE_NORMAL
+// silent: FDCAN_MODE_BUS_MONITORING
+// loopback: FDCAN_MODE_INTERNAL_LOOPBACK
+// external: FDCAN_MODE_EXTERNAL_LOOPBACK
+uint32_t can_set_mode(uint32_t mode)
 {
     if (bus_state == ON_BUS)
     {
         // cannot set silent mode while on bus
         return HAL_ERROR;
     }
-    if (silent)
-    {
-        can_handle.Init.Mode = FDCAN_MODE_BUS_MONITORING; // !!!?!?!
-    } else {
-        can_handle.Init.Mode = FDCAN_MODE_NORMAL;
-    }
+    can_handle.Init.Mode = mode;
 
     led_green_on();
     
@@ -323,7 +322,7 @@ void can_set_autoretransmit(uint8_t autoretransmit)
 // Send a message on the CAN bus. Called from USB ISR.
 uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t* tx_msg_data)
 {
-    if (bus_state == ON_BUS && can_handle.Init.Mode == FDCAN_MODE_NORMAL)
+    if (bus_state == ON_BUS && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING)
     {
         // If when we increment the head we're going to hit the tail
         // (if we're filling the last spot in the queue)
