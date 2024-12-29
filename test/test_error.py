@@ -17,7 +17,7 @@ class ErrorTestCase(unittest.TestCase):
         
         # connect to canable
         # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM0', timeout=1)
+        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
 
         # clear buffer
         self.send(b"\r\r\r")
@@ -69,7 +69,7 @@ class ErrorTestCase(unittest.TestCase):
         return rx_data
 
 
-    def test_all_modes(self):
+    def test_in_all_modes(self):
         # confirm command is not active in closed mode
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"\a")

@@ -17,7 +17,7 @@ class SlcanTestCase(unittest.TestCase):
         
         # connect to canable
         # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM0', timeout=1)
+        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
 
         # clear buffer
         self.send(b"\r\r\r")
