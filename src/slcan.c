@@ -95,10 +95,14 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
         return -1;
 
     // Add data bytes
-    for (uint8_t j = 0; j < bytes; j++)
+    // Data frame only. No data bytes for a remote frame.
+    if (frame_header.TxFrameType != FDCAN_REMOTE_FRAME) 
     {
-        buf[msg_idx++] = (frame_data[j] >> 4);
-        buf[msg_idx++] = (frame_data[j] & 0x0F);
+        for (uint8_t j = 0; j < bytes; j++)
+        {
+            buf[msg_idx++] = (frame_data[j] >> 4);
+            buf[msg_idx++] = (frame_data[j] & 0x0F);
+        }
     }
 
     // Convert to ASCII (2nd character to end)
