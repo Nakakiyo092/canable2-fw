@@ -317,7 +317,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'F':
     {
         // Convert error register to status flags
-        if (can_get_bus_state == ON_BUS)
+        if (can_get_bus_state() == ON_BUS)
         {
             char stsstr[64] = {0};
             snprintf_(stsstr, 64, "F%02X\r", (unsigned int)error_get_status_flags());
