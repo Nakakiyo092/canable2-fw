@@ -349,6 +349,15 @@ uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
     return HAL_OK;
 }
 
+// Receive message from the CAN bus (blocking)
+uint32_t can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data)
+{
+    uint32_t status;
+    status = HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, rx_msg_header, rx_msg_data);
+
+    return status;
+}
+
 // Process data from CAN tx /rx? circular buffers
 void can_process(void)
 {
@@ -369,20 +378,33 @@ void can_process(void)
 
         led_green_on();
     }
-}
 
-// Receive message from the CAN bus (blocking)
-uint32_t can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data)
-{
-    uint32_t status;
-    status = HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, rx_msg_header, rx_msg_data);
+    // Message has been received, pull it from the buffer
+    if (can_is_msg_pending(FDCAN_RX_FIFO0))
+    {
+        // Storage for status and received message buffer
+        FDCAN_RxHeaderTypeDef rx_msg_header;
+        uint8_t rx_msg_data[64] = {0};
+        uint8_t msg_buf[SLCAN_MTU];
 
-    led_blue_on();
-    return status;
+        // If message received from bus, parse the frame
+        if (can_rx(&rx_msg_header, rx_msg_data) == HAL_OK)
+        {
+            int32_t msg_len = slcan_parse_frame((uint8_t *)&msg_buf, &rx_msg_header, rx_msg_data);
+
+            // Transmit message via USB-CDC
+            if (msg_len > 0)
+            {
+                cdc_transmit(msg_buf, msg_len);
+            }
+
+            led_blue_on();
+        }
+    }
 }
 
 // Check if a CAN message has been received and is waiting in the FIFO
-uint8_t is_can_msg_pending(uint8_t fifo)
+uint8_t can_is_msg_pending(uint8_t fifo)
 {
     if (bus_state == OFF_BUS)
     {
@@ -393,7 +415,7 @@ uint8_t is_can_msg_pending(uint8_t fifo)
 }
 
 // Return reference to CAN handle
-FDCAN_HandleTypeDef *can_gethandle(void)
+FDCAN_HandleTypeDef *can_get_handle(void)
 {
     return &can_handle;
 }
