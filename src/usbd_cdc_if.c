@@ -213,15 +213,7 @@ void cdc_process(void)
 	    {
             if (rxbuf.buf[rxbuf.tail][i] == '\r')
             {
-                //int8_t result =
                 slcan_parse_str(slcan_str, slcan_str_index);
-
-                // Success
-                //if(result == 0)
-                //    CDC_Transmit_FS("\n", 1);
-                // Failure
-                //else
-                //    CDC_Transmit_FS("\a", 1);
 
                 slcan_str_index = 0;
             }
