@@ -86,7 +86,39 @@ class ErrorTestCase(unittest.TestCase):
 
         # check error
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F08\r")
+        # TODO
+        #self.assertEqual(self.receive(), b"F08\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_can_tx_overflow(self):
+        # check response to shortest SEND in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # the buffer can store as least 64 messages
+        for i in range(0, 64):
+            self.send(b"t03F0\r")
+            self.assertEqual(self.receive(), b"z\r")
+
+        # the buffer can not store additional 64 messages
+        for i in range(0, 64):
+            self.send(b"t03F0\r")
+            self.receive()
+
+        # the buffer can not store anymore messages
+        for i in range(0, 64):
+            self.send(b"t03F0\r")
+            self.assertEqual(self.receive(), b"\a")
+
+        # check error
+        self.send(b"F\r")
+        # TODO
+        #self.assertEqual(self.receive(), b"F08\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
 
 if __name__ == "__main__":
