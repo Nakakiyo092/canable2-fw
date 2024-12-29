@@ -163,7 +163,7 @@ class ErrorTestCase(unittest.TestCase):
 
         # check error
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F02\r")
+        self.assertEqual(self.receive(), b"F01\r")
 
         # check error clear
         self.send(b"F\r")
