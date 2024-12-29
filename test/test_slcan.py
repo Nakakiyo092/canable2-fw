@@ -277,8 +277,10 @@ class SlcanTestCase(unittest.TestCase):
 
         for cmd in cmd_send_std:
             self.send(cmd + b"03F1\r")
-            if cmd == b"r" or cmd == b"R":
+            if cmd == b"r":
                 self.assertEqual(self.receive(), b"z\r")
+            elif cmd == b"R":
+                self.assertEqual(self.receive(), b"Z\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
 
@@ -288,8 +290,10 @@ class SlcanTestCase(unittest.TestCase):
 
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC81\r")
-            if cmd == b"r" or cmd == b"R":
+            if cmd == b"r":
                 self.assertEqual(self.receive(), b"z\r")
+            elif cmd == b"R":
+                self.assertEqual(self.receive(), b"Z\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
 
