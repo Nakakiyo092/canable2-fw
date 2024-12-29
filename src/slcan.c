@@ -169,7 +169,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         // Open channel (normal mode)
         case 'O':
             // Default to normal mode
-            if (can_set_silent(0) != HAL_OK)
+            if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
@@ -184,8 +184,40 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         // Open channel (silent mode)
         case 'L':
-            // Mode 1: silent
-            if (can_set_silent(1) != HAL_OK)
+            // Mode silent
+            if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            // Open CAN port
+            if (can_enable() != HAL_OK){
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
+
+        // Open channel (in loopback mode)
+        case '=':
+            // Mode loopback
+            if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            // Open CAN port
+            if (can_enable() != HAL_OK){
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
+
+        // Open channel (ex loopback mode)
+        case '+':
+            // Mode loopback
+            if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
