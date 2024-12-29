@@ -316,6 +316,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Read status flags
     case 'F':
     {
+        error_clear();
         // Convert error register to status flags
         if (can_get_bus_state() == ON_BUS)
         {
