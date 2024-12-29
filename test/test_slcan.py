@@ -229,10 +229,9 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
 
-        self.send(b"r03FF\r")
-        #self.assertEqual(self.receive(), b"z\r")
         # FIXME unable to send DLC > 8
-        self.receive()
+        self.send(b"r03F8\r")
+        self.assertEqual(self.receive(), b"z\r")
         self.send(b"t03F80011223344556677\r")
         self.assertEqual(self.receive(), b"z\r")
         self.send(b"d03FF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
@@ -240,10 +239,9 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"b03FF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
         self.assertEqual(self.receive(), b"z\r")
 
-        self.send(b"R0137FEC8F\r")
-        #self.assertEqual(self.receive(), b"Z\r")
         # FIXME unable to send DLC > 8
-        self.receive()
+        self.send(b"R0137FEC88\r")
+        self.assertEqual(self.receive(), b"Z\r")
         self.send(b"T0137FEC880011223344556677\r")
         self.assertEqual(self.receive(), b"Z\r")
         self.send(b"D0137FEC8F00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
