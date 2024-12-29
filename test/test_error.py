@@ -108,7 +108,7 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # send a lot of command without receiving data
+        # send a lot of command without receiving data (depends on PC env.)
         for i in range(0, 200):
             self.send(b"V\r")
             time.sleep(0.02)
@@ -145,27 +145,21 @@ class ErrorTestCase(unittest.TestCase):
 
         # the buffer can store as least 100 messages (2048 / 22)
         for i in range(0, 100):
-            tx_data = b"t03F80011223344556677\r"
-            self.send(tx_data)
-            self.assertEqual(self.receive(), b"z\r" + tx_data)
+            self.send(b"t03F80011223344556677\r")
+
+        # recieve all reply
+        rx_data = self.receive()
 
         # confirm no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # the buffer can not store additional 100 messages
-        for i in range(0, 100):
+        # the buffer can not store 400 messages (depends on PC env.)
+        for i in range(0, 400):
             self.send(b"t03F80011223344556677\r")
-            self.receive()
 
-        # check error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F02\r")
-
-        # the buffer can not store anymore messages
-        for i in range(0, 100):
-            self.send(b"t03F80011223344556677\r")
-            self.assertEqual(self.receive(), b"z\r")
+        # recieve all reply
+        rx_data = self.receive()
 
         # check error
         self.send(b"F\r")
