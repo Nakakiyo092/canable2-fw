@@ -26,6 +26,8 @@ class LoopbackTestCase(unittest.TestCase):
         # reset to default status
         self.send(b"C\r")
         self.receive()
+        self.send(b"Z0\r")
+        self.receive()
 
 
     def tearDown(self):
@@ -178,6 +180,109 @@ class LoopbackTestCase(unittest.TestCase):
         tx_data = b"B0137FEC8F00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"Z\r" + tx_data)
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_timestamp(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check timestamp off in CAN loopback mode
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check timestamp on in CAN loopback mode
+        self.send(b"Z1\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            rx_data = self.receive()
+            self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTT\r"))
+            self.assertEqual(rx_data[:len(b"z\r" + cmd + b"03F0")], b"z\r" + cmd + b"03F0")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            rx_data = self.receive()
+            self.assertEqual(len(rx_data), len(b"Z\r" + cmd + b"0137FEC80TTTT\r"))
+            self.assertEqual(rx_data[:len(b"Z\r" + cmd + b"0137FEC80")], b"Z\r" + cmd + b"0137FEC80")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check timestamp off in CAN loopback mode
+        self.send(b"Z0\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check timestamp accuracy in CAN loopback mode
+        self.send(b"Z1\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t03F0\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"z\r" + b"t03F0TTTT\r"))
+        self.assertEqual(rx_data[:len(b"z\r" + b"t03F0")], b"z\r" + b"t03F0")
+
+        last_timestamp = rx_data[len(b"z\r" + b"t03F0"):len(b"z\r" + b"t03F0") + 4]
+        last_time_ms = int(last_timestamp.decode(), 16)
+
+        #print("time: ", last_time_ms)
+
+        sleep_time_ms = 10 * 1000
+        time.sleep(sleep_time_ms / 1000)
+
+        self.send(b"t03F0\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"z\r" + b"t03F0TTTT\r"))
+        self.assertEqual(rx_data[:len(b"z\r" + b"t03F0")], b"z\r" + b"t03F0")
+
+        crnt_timestamp = rx_data[len(b"z\r" + b"t03F0"):len(b"z\r" + b"t03F0") + 4]
+        crnt_time_ms = int(crnt_timestamp.decode(), 16)
+
+        #print("time: ", crnt_time_ms)
+
+        if crnt_time_ms > last_time_ms:
+            diff_time_ms = crnt_time_ms - last_time_ms
+        else:
+            diff_time_ms = (60000 + crnt_time_ms) - last_time_ms
+
+        # Proving 2% accuracy. 200ms should be acceptable for USB latency.
+        self.assertLess(abs(sleep_time_ms - diff_time_ms), 200)
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

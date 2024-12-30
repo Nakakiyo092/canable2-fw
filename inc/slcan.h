@@ -1,8 +1,20 @@
 #ifndef _SLCAN_H
 #define _SLCAN_H
 
+// Timestamp mode
+enum slcan_timestamp_mode
+{
+    SLCAN_TIMESTAMP_OFF = 0,
+    SLCAN_TIMESTAMP_RX_MILI,
+    //SLCAN_TIMESTAMP_RX_MICRO,     // Reserved
+    //SLCAN_TIMESTAMP_RXTX_MILI,    // TODO
+    //SLCAN_TIMESTAMP_RXTX_MICRO,   // Maybe
+
+    SLCAN_TIMESTAMP_INVALID,
+};
+
 // Maximum rx buffer len
-#define SLCAN_MTU 138 + 1 + 16 // canfd 64 frame plus \r plus some padding
+#define SLCAN_MTU (1 + 8 + 1 + 128 + 4 + 1 + 16) /* cmd 1 plus id 8 plus dlc 1 plus data 128 plus timestamp 4 plus \r plus some padding */
 #define SLCAN_STD_ID_LEN 3
 #define SLCAN_EXT_ID_LEN 8
 
