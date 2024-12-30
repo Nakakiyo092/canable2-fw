@@ -15,6 +15,9 @@
 
 // Private variables
 char *fw_id = "VL2K0 " GIT_VERSION " " GIT_REMOTE "\r";
+static uint8_t slcan_timestamp_mode = 0;
+static uint16_t slcan_last_timestamp = 0;
+static uint32_t slcan_last_time_ms = 0;
 
 // Private methods
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
@@ -102,6 +105,22 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
             buf[msg_idx++] = (frame_data[j] >> 4);
             buf[msg_idx++] = (frame_data[j] & 0x0F);
         }
+    }
+
+    // Add time stamp
+    // TODO using RxTimestamp will create more accurate timestamp
+    if (slcan_timestamp_mode == SLCAN_TIMESTAMP_RX_MILI)
+    {
+        uint32_t current_time_ms = HAL_GetTick();
+        uint32_t timeDiff = (current_time_ms >= slcan_last_time_ms) ? (current_time_ms - slcan_last_time_ms) : (UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms);
+
+        slcan_last_timestamp = (slcan_last_timestamp + timeDiff % 60000) % 60000;
+        slcan_last_time_ms = current_time_ms;
+
+        buf[msg_idx++] = ((slcan_last_timestamp >> 12) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp >> 8) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp >> 4) & 0xF);
+        buf[msg_idx++] = (slcan_last_timestamp & 0xF);
     }
 
     // Convert to ASCII (2nd character to end)
@@ -255,7 +274,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'S':
 
         // Check for valid bitrate
-        if (buf[1] >= CAN_BITRATE_INVALID)
+        if (len < 2 || CAN_BITRATE_INVALID <= buf[1])
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
@@ -271,6 +290,12 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'Y':
 
         // Check for valid bitrate
+        if (len < 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
         switch (buf[1])
         {
         case CAN_DATA_BITRATE_500K:
@@ -316,19 +341,45 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Read status flags
     case 'F':
     {
-        // Convert error register to status flags
+        // Return the status flags
         if (can_get_bus_state() == ON_BUS)
         {
             char stsstr[64] = {0};
             snprintf_(stsstr, 64, "F%02X\r", (unsigned int)error_get_status_flags());
             cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
         }
+        // This command is only active if the CAN channel is open.
         else
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         }
         error_clear();
         return;
+    }
+
+    // Set timestamp on/off
+    case 'Z':
+    {
+        // Set timestamp on/off
+        if (can_get_bus_state() == OFF_BUS)
+        {
+            // Check for valid command
+            if (len < 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
+            {
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+
+            slcan_timestamp_mode = buf[1];
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
+        }
+        // This command is only active if the CAN channel is closed.
+        else
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
     }
 
     // Transmit remote frame command
