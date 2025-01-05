@@ -338,6 +338,54 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     }
 
+    // Get serial number
+    case 'N':
+    {
+        if (len < 5)
+        {
+            // Report serial number
+            char numstr[64] = {0};
+            uint64_t serial = *(uint64_t *)0x0801F800;
+            snprintf_(numstr, 64, "N%04X\r", (uint16_t)serial);
+            cdc_transmit((uint8_t *)numstr, strlen(numstr));
+            return;
+        }
+        else
+        {
+            // Set serial number
+            uint64_t serial = ((uint64_t)buf[1] << 12) + ((uint64_t)buf[2] << 8) + ((uint64_t)buf[3] << 4) + (uint64_t)buf[4];
+            HAL_FLASH_Unlock();
+            
+            // Erase the page
+            FLASH_EraseInitTypeDef erase;
+            erase.TypeErase = FLASH_TYPEERASE_PAGES;
+            erase.Banks = FLASH_BANK_1;
+            erase.Page = 63;
+            erase.NbPages = 1;
+
+            uint32_t error = 0;
+            HAL_FLASHEx_Erase(&erase, &error);
+            if (error != 0xFFFFFFFF)
+            {
+                HAL_FLASH_Lock();
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+
+            // Program the flash
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, 0x0801F800, serial) != HAL_OK)
+            {
+                HAL_FLASH_Lock();
+                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                return;
+            }
+
+            HAL_FLASH_Lock();
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
+        }
+    }
+
     // Read status flags
     case 'F':
     {
@@ -576,3 +624,4 @@ static uint8_t __hal_dlc_code_to_std_dlc_code(uint32_t hal_dlc_code)
 {
     return hal_dlc_code >> 16;
 }
+
