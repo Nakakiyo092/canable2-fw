@@ -191,12 +191,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Open channel (normal mode)
     case 'O':
         slcan_open_channel();
+        return;
     // Open channel (silent mode)
     case 'L':
         slcan_listen_channel();
+        return;
     // Open channel (loopback mode)
     case '=':
         slcan_loop_channel();
+        return;
 
     // Open channel (ex loopback mode)
     case '+':
@@ -219,12 +222,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Close channel
     case 'C':
         slcan_close_channel();
+        return;
     // Set nominal bitrate
     case 'S':
         slcan_set_bitrate(buf, len);
+        return;
     // Set data bitrate
     case 'Y':
         slcan_set_data_bitrate(buf, len);
+        return;
 
     // FIXME: Nonstandard!
     case 'A':
@@ -245,15 +251,19 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Get version number in standard + CANable style
     case 'V':
         slcan_report_version();
+        return;
     // Get serial number
     case 'N':
         slcan_report_number(buf, len);
+        return;
     // Read status flags
     case 'F':
         slcan_report_status_flags();
+        return;
     // Set timestamp on/off
     case 'Z':
         slcan_set_timestamp(buf, len);
+        return;
 
     // Transmit remote frame command
     case 'r':
