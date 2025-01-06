@@ -61,19 +61,6 @@ uint32_t error_get_register(void)
     return err_reg;
 }
 
-// Return value of status flags
-uint8_t error_get_status_flags(void)
-{
-    uint8_t status = 0;
-
-    status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
-    status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
-    status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
-    status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << STS_CAN_RX_FIFO_FULL)) : status;
-
-    return status;
-}
-
 // Clear all error
 void error_clear(void)
 {

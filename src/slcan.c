@@ -23,6 +23,17 @@ static uint32_t slcan_last_time_ms = 0;
 // Private methods
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
 static uint8_t __hal_dlc_code_to_std_dlc_code(uint32_t hal_dlc_code);
+static uint32_t slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
+static void slcan_open_channel(void);
+static void slcan_listen_channel(void);
+static void slcan_loop_channel(void);
+static void slcan_close_channel(void);
+static void slcan_set_bitrate(uint8_t *buf, uint8_t len);
+static void slcan_set_data_bitrate(uint8_t *buf, uint8_t len);
+static void slcan_set_timestamp(uint8_t *buf, uint8_t len);
+static void slcan_report_version(void);
+static void slcan_report_number(uint8_t *buf, uint8_t len);
+static void slcan_report_status_flags(void);
 
 // Parse an incoming CAN frame into an outgoing slcan message
 int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data)
@@ -167,24 +178,11 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     }
 
-    // Convert from ASCII (2nd character to end)
-    for (uint8_t i = 1; i < len; i++)
+    // Convert an incoming slcan command from ASCII to number (2nd character to end)
+    if (slcan_convert_str_to_number(buf, len) != HAL_OK)
     {
-        // Numbers
-        if ('0' <= buf[i] && buf[i] <= '9')
-            buf[i] = buf[i] - '0';
-        // Lowercase letters
-        else if ('a' <= buf[i] && buf[i] <= 'f')
-            buf[i] = buf[i] - 'a' + 10;
-        // Uppercase letters
-        else if ('A' <= buf[i] && buf[i] <= 'F')
-            buf[i] = buf[i] - 'A' + 10;
-        // Invalid character
-        else
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
     }
 
     // Handle each incoming command
@@ -192,57 +190,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     {
     // Open channel (normal mode)
     case 'O':
-        error_clear();
-        // Default to normal mode
-        if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        // Open CAN port
-        if (can_enable() != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return;
-
+        slcan_open_channel();
     // Open channel (silent mode)
     case 'L':
-        error_clear();
-        // Mode silent
-        if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        // Open CAN port
-        if (can_enable() != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return;
-
-    // Open channel (in loopback mode)
+        slcan_listen_channel();
+    // Open channel (loopback mode)
     case '=':
-        error_clear();
-        // Mode loopback
-        if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        // Open CAN port
-        if (can_enable() != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return;
+        slcan_loop_channel();
 
     // Open channel (ex loopback mode)
     case '+':
@@ -264,56 +218,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Close channel
     case 'C':
-        if (can_disable() == HAL_OK)
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        else
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        error_clear();
-        return;
-
+        slcan_close_channel();
     // Set nominal bitrate
     case 'S':
-
-        // Check for valid bitrate
-        if (len < 2 || CAN_BITRATE_INVALID <= buf[1])
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-
-        if (can_set_bitrate(buf[1]) == HAL_OK)
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        else
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
-
+        slcan_set_bitrate(buf, len);
     // Set data bitrate
     case 'Y':
-
-        // Check for valid bitrate
-        if (len < 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-
-        switch (buf[1])
-        {
-        case CAN_DATA_BITRATE_500K:
-        case CAN_DATA_BITRATE_1M:
-        case CAN_DATA_BITRATE_2M:
-        case CAN_DATA_BITRATE_4M:
-        case CAN_DATA_BITRATE_5M:
-            if (can_set_data_bitrate(buf[1]) == HAL_OK)
-                cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            else
-                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        default:
-            // Invalid bitrate
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
+        slcan_set_data_bitrate(buf, len);
 
     // FIXME: Nonstandard!
     case 'A':
@@ -333,78 +244,16 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Get version number in standard + CANable style
     case 'V':
-    {
-        // Report firmware version and remote
-        cdc_transmit((uint8_t *)fw_id, strlen(fw_id));
-        return;
-    }
-
+        slcan_report_version();
     // Get serial number
     case 'N':
-    {
-        if (len < 5)
-        {
-            // Report serial number
-            char numstr[64] = {0};
-            snprintf_(numstr, 64, "N%04X\r", nvm_get_serial_number());
-            cdc_transmit((uint8_t *)numstr, strlen(numstr));
-            return;
-        }
-        else
-        {
-            // Set serial number
-            uint16_t serial = ((uint16_t)buf[1] << 12) + ((uint16_t)buf[2] << 8) + ((uint16_t)buf[3] << 4) + buf[4];
-            if (nvm_update_serial_number(serial) == HAL_OK)
-                cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            else
-                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-    }
-
+        slcan_report_number(buf, len);
     // Read status flags
     case 'F':
-    {
-        // Return the status flags
-        if (can_get_bus_state() == ON_BUS)
-        {
-            char stsstr[64] = {0};
-            snprintf_(stsstr, 64, "F%02X\r", (unsigned int)error_get_status_flags());
-            cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
-        }
-        // This command is only active if the CAN channel is open.
-        else
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        }
-        error_clear();
-        return;
-    }
-
+        slcan_report_status_flags();
     // Set timestamp on/off
     case 'Z':
-    {
-        // Set timestamp on/off
-        if (can_get_bus_state() == OFF_BUS)
-        {
-            // Check for valid command
-            if (len < 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
-            {
-                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                return;
-            }
-
-            slcan_timestamp_mode = buf[1];
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-            return;
-        }
-        // This command is only active if the CAN channel is closed.
-        else
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-    }
+        slcan_set_timestamp(buf, len);
 
     // Transmit remote frame command
     case 'r':
@@ -531,9 +380,9 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     {
         char repstr[64] = {0};
         if (frame_header.IdType == FDCAN_EXTENDED_ID)
-            snprintf_(repstr, 64, "Z\r");
+            snprintf(repstr, 64, "Z\r");
         else
-            snprintf_(repstr, 64, "z\r");
+            snprintf(repstr, 64, "z\r");
         cdc_transmit((uint8_t *)repstr, strlen(repstr));
     }
     else
@@ -543,6 +392,230 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     }
 
     return;
+}
+
+// Convert from ASCII to number (2nd character to end)
+uint32_t slcan_convert_str_to_number(uint8_t *buf, uint8_t len)
+{
+    // Convert from ASCII (2nd character to end)
+    for (uint8_t i = 1; i < len; i++)
+    {
+        // Numbers
+        if ('0' <= buf[i] && buf[i] <= '9')
+            buf[i] = buf[i] - '0';
+        // Lowercase letters
+        else if ('a' <= buf[i] && buf[i] <= 'f')
+            buf[i] = buf[i] - 'a' + 10;
+        // Uppercase letters
+        else if ('A' <= buf[i] && buf[i] <= 'F')
+            buf[i] = buf[i] - 'A' + 10;
+        // Invalid character
+        else
+            return HAL_ERROR;
+    }
+    return HAL_OK;
+}
+
+// Open channel (normal mode)
+void slcan_open_channel(void)
+{
+    error_clear();
+    // Default to normal mode
+    if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    // Open CAN port
+    if (can_enable() != HAL_OK)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    return;
+}
+
+// Open channel (silent mode)
+void slcan_listen_channel(void)
+{
+    error_clear();
+    // Mode silent
+    if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    // Open CAN port
+    if (can_enable() != HAL_OK)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    return;
+}
+
+// Open channel (loopback mode)
+void slcan_loop_channel(void)
+{
+    error_clear();
+    // Mode loopback
+    if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    // Open CAN port
+    if (can_enable() != HAL_OK)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    return;
+}
+
+// Close channel
+void slcan_close_channel(void)
+{
+    if (can_disable() == HAL_OK)
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+    error_clear();
+    return;
+}
+
+// Set nominal bitrate
+void slcan_set_bitrate(uint8_t *buf, uint8_t len)
+{
+    // Check for valid bitrate
+    if (len < 2 || CAN_BITRATE_INVALID <= buf[1])
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
+    if (can_set_bitrate(buf[1]) == HAL_OK)
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+    return;
+}
+
+// Set data bitrate
+void slcan_set_data_bitrate(uint8_t *buf, uint8_t len)
+{
+    // Check for valid bitrate
+    if (len < 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
+    switch (buf[1])
+    {
+    case CAN_DATA_BITRATE_500K:
+    case CAN_DATA_BITRATE_1M:
+    case CAN_DATA_BITRATE_2M:
+    case CAN_DATA_BITRATE_4M:
+    case CAN_DATA_BITRATE_5M:
+        if (can_set_data_bitrate(buf[1]) == HAL_OK)
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        else
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    default:
+        // Invalid bitrate
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+// Get version number in standard + CANable style
+void slcan_report_version(void)
+{
+    // Report firmware version and remote
+    cdc_transmit((uint8_t *)fw_id, strlen(fw_id));
+    return;
+}
+
+// Get serial number
+void slcan_report_number(uint8_t *buf, uint8_t len)
+{
+    if (len != 5)
+    {
+        // Report serial number
+        char numstr[64] = {0};
+        snprintf(numstr, 64, "N%04X\r", nvm_get_serial_number());
+        cdc_transmit((uint8_t *)numstr, strlen(numstr));
+        return;
+    }
+    else
+    {
+        // Set serial number
+        uint16_t serial = ((uint16_t)buf[1] << 12) + ((uint16_t)buf[2] << 8) + ((uint16_t)buf[3] << 4) + buf[4];
+        if (nvm_update_serial_number(serial) == HAL_OK)
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        else
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+// Read status flags
+void slcan_report_status_flags(void)
+{
+    // Return the status flags
+    if (can_get_bus_state() == ON_BUS)
+    {
+        uint8_t status = 0;
+        uint32_t err_reg = error_get_register();
+
+        status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << STS_CAN_RX_FIFO_FULL)) : status;
+
+        char stsstr[64] = {0};
+        snprintf(stsstr, 64, "F%02X\r", status);
+        cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+    }
+    // This command is only active if the CAN channel is open.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+    }
+    // This command also clear the RED Error LED.
+    error_clear();
+    return;
+}
+
+
+// Set timestamp on/off
+void slcan_report_number(uint8_t *buf, uint8_t len)
+{
+    // Set timestamp on/off
+    if (can_get_bus_state() == OFF_BUS)
+    {
+        // Check for valid command
+        if (len < 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        slcan_timestamp_mode = buf[1];
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // This command is only active if the CAN channel is closed.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
 }
 
 // Convert a FDCAN_data_length_code to number of bytes in a message

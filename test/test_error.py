@@ -196,7 +196,7 @@ class ErrorTestCase(unittest.TestCase):
             self.send(b"t03F0\r")
             self.receive()
 
-        # confirm no error
+        # check error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F02\r")
 
