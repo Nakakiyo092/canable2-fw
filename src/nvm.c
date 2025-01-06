@@ -31,7 +31,7 @@ uint16_t nvm_get_serial_number(void)
 }
 
 // Update serial number
-uint32_t nvm_update_serial_number(uint16_t num)
+HAL_StatusTypeDef nvm_update_serial_number(uint16_t num)
 {
     // Check if the serial number is the same
     if (num == nvm_serial_number)

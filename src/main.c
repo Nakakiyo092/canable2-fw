@@ -16,13 +16,13 @@ int main(void)
 {
     // Initialize peripherals
     system_init();
-    can_init();
     led_init();
+    can_init();
     nvm_init();
     usb_init();
 
     // Power-on blink sequence
-    led_blue_blink(2);
+    led_blink_sequence(5);
 
     while (1)
     {

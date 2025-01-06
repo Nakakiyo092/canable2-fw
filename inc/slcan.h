@@ -2,7 +2,7 @@
 #define _SLCAN_H
 
 // Timestamp mode
-typedef enum
+enum slcan_timestamp_mode
 {
     SLCAN_TIMESTAMP_OFF = 0,
     SLCAN_TIMESTAMP_RX_MILI,
@@ -11,20 +11,19 @@ typedef enum
     // SLCAN_TIMESTAMP_RXTX_MICRO,   // Maybe
 
     SLCAN_TIMESTAMP_INVALID,
-} slcan_timestamp_mode_t;
+};
 
 // Status flags, value is bit position in the status flags
-typedef enum
+enum slcan_status_flag
 {
     STS_CAN_RX_FIFO_FULL = 0, /* Message loss. Not mean the buffer is just full. */
     STS_CAN_TX_FIFO_FULL,     /* Message loss. Not mean the buffer is just full. */
-
-} slcan_status_flag_t;
+};
 
 // Maximum rx buffer len
-#define SLCAN_MTU (138 + 4 + 1 + 16) /* frame 138 plus timestamp 4 plus \r plus some padding */
-#define SLCAN_STD_ID_LEN 3
-#define SLCAN_EXT_ID_LEN 8
+#define SLCAN_MTU           (138 + 4 + 1 + 16) /* frame 138 plus timestamp 4 plus \r plus some padding */
+#define SLCAN_STD_ID_LEN    (3)
+#define SLCAN_EXT_ID_LEN    (8)
 
 // Prototypes
 int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data);

@@ -3,11 +3,11 @@
 //
 
 #include "stm32g4xx_hal.h"
-#include "slcan.h"
 #include "usbd_cdc_if.h"
 #include "can.h"
-#include "led.h"
 #include "error.h"
+#include "led.h"
+#include "slcan.h"
 #include "system.h"
 
 // Private variables
@@ -15,18 +15,18 @@ static FDCAN_HandleTypeDef can_handle;
 // static FDCAN_FilterTypeDef filter;
 enum can_bus_state bus_state;
 static uint8_t can_autoretransmit = ENABLE;
-static can_txbuf_t txqueue = {0};
+static struct can_tx_buf txqueue = {0};
 
 // Structure for CAN/FD bitrate configuration
-typedef struct can_bitrate_cfg_
+struct can_bitrate_cfg
 {
     uint16_t prescaler;
     uint8_t sjw;
     uint8_t time_seg1;
     uint8_t time_seg2;
-} can_bitrate_cfg_t;
+};
 
-static can_bitrate_cfg_t bitrate_nominal, bitrate_data = {0};
+static struct can_bitrate_cfg bitrate_nominal, bitrate_data = {0};
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
 void can_init(void)
@@ -76,7 +76,7 @@ void can_init(void)
 }
 
 // Start the CAN peripheral
-uint32_t can_enable(void)
+HAL_StatusTypeDef can_enable(void)
 {
     if (bus_state == OFF_BUS)
     {
@@ -118,7 +118,7 @@ uint32_t can_enable(void)
 
         bus_state = ON_BUS;
 
-        led_blue_on();
+        led_turn_green(LED_OFF);
 
         return HAL_OK;
     }
@@ -126,7 +126,7 @@ uint32_t can_enable(void)
 }
 
 // Disable the CAN peripheral and go off-bus
-uint32_t can_disable(void)
+HAL_StatusTypeDef can_disable(void)
 {
     if (bus_state == ON_BUS)
     {
@@ -134,7 +134,7 @@ uint32_t can_disable(void)
         HAL_FDCAN_DeInit(&can_handle);
         bus_state = OFF_BUS;
 
-        HAL_GPIO_WritePin(LED_GREEN, LED_ON);
+        led_turn_green(LED_ON);
 
         return HAL_OK;
     }
@@ -142,7 +142,7 @@ uint32_t can_disable(void)
 }
 
 // Set the data bitrate of the CAN peripheral
-uint32_t can_set_data_bitrate(enum can_data_bitrate bitrate)
+HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
 {
     if (bus_state == ON_BUS)
     {
@@ -185,13 +185,11 @@ uint32_t can_set_data_bitrate(enum can_data_bitrate bitrate)
         break;
     }
 
-    led_green_on();
-
     return HAL_OK;
 }
 
 // Set the nominal bitrate of the CAN peripheral
-uint32_t can_set_bitrate(enum can_bitrate bitrate)
+HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
 {
     if (bus_state == ON_BUS)
     {
@@ -265,8 +263,6 @@ uint32_t can_set_bitrate(enum can_bitrate bitrate)
         break;
     }
 
-    led_green_on();
-
     return HAL_OK;
 }
 
@@ -275,7 +271,7 @@ uint32_t can_set_bitrate(enum can_bitrate bitrate)
 // silent: FDCAN_MODE_BUS_MONITORING
 // loopback: FDCAN_MODE_INTERNAL_LOOPBACK
 // external: FDCAN_MODE_EXTERNAL_LOOPBACK
-uint32_t can_set_mode(uint32_t mode)
+HAL_StatusTypeDef can_set_mode(uint32_t mode)
 {
     if (bus_state == ON_BUS)
     {
@@ -283,8 +279,6 @@ uint32_t can_set_mode(uint32_t mode)
         return HAL_ERROR;
     }
     can_handle.Init.Mode = mode;
-
-    led_green_on();
 
     return HAL_OK;
 }
@@ -305,12 +299,10 @@ void can_set_autoretransmit(uint8_t autoretransmit)
     {
         can_autoretransmit = DISABLE;
     }
-
-    led_green_on();
 }
 
 // Send a message on the CAN bus. Called from USB ISR.
-uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
+HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
 {
     if (bus_state == ON_BUS && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING)
     {
@@ -350,9 +342,9 @@ uint32_t can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
 }
 
 // Receive message from the CAN bus (blocking)
-uint32_t can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data)
+HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data)
 {
-    uint32_t status;
+    HAL_StatusTypeDef status;
     status = HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, rx_msg_header, rx_msg_data);
 
     return status;
@@ -363,7 +355,7 @@ void can_process(void)
 {
     while ((txqueue.tail != txqueue.head) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
     {
-        uint32_t status;
+        HAL_StatusTypeDef status;
 
         // Transmit can frame
         status = HAL_FDCAN_AddMessageToTxFifoQ(&can_handle, &txqueue.header[txqueue.tail], txqueue.data[txqueue.tail]);
@@ -376,7 +368,7 @@ void can_process(void)
             error_assert(ERR_CAN_TXFAIL);
         }
 
-        led_green_on();
+        led_blink_green();
     }
 
     // Message has been received, pull it from the buffer
@@ -398,8 +390,14 @@ void can_process(void)
                 cdc_transmit(msg_buf, msg_len);
             }
 
-            led_blue_on();
+            led_blink_blue();
         }
+    }
+
+    if (bus_state == OFF_BUS)
+    {
+        led_turn_green(LED_ON);
+        // TODO stop can tx/rx and clear can buffer
     }
 }
 
@@ -421,7 +419,7 @@ FDCAN_HandleTypeDef *can_get_handle(void)
 }
 
 // Return bus status
-uint8_t can_get_bus_state(void)
+enum can_bus_state can_get_bus_state(void)
 {
     return bus_state;
 }
