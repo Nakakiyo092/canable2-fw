@@ -16,10 +16,10 @@ typedef enum
 } error_flag_t;
 
 // Prototypes
-void error_assert(error_t err);
-uint32_t error_get_timestamp(error_t err);
+void error_assert(error_flag_t err);
+uint32_t error_get_timestamp(error_flag_t err);
 uint32_t error_get_last_timestamp(void);
-uint8_t error_occurred(error_t err);
+uint8_t error_occurred(error_flag_t err);
 uint32_t error_get_register(void);
 void error_clear();
 

@@ -533,6 +533,31 @@ void slcan_set_data_bitrate(uint8_t *buf, uint8_t len)
     }
 }
 
+// Set timestamp on/off
+void slcan_set_timestamp(uint8_t *buf, uint8_t len)
+{
+    // Set timestamp on/off
+    if (can_get_bus_state() == OFF_BUS)
+    {
+        // Check for valid command
+        if (len < 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        slcan_timestamp_mode = buf[1];
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // This command is only active if the CAN channel is closed.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
 // Get version number in standard + CANable style
 void slcan_report_version(void)
 {
@@ -590,32 +615,6 @@ void slcan_report_status_flags(void)
     // This command also clear the RED Error LED.
     error_clear();
     return;
-}
-
-
-// Set timestamp on/off
-void slcan_report_number(uint8_t *buf, uint8_t len)
-{
-    // Set timestamp on/off
-    if (can_get_bus_state() == OFF_BUS)
-    {
-        // Check for valid command
-        if (len < 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-
-        slcan_timestamp_mode = buf[1];
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return;
-    }
-    // This command is only active if the CAN channel is closed.
-    else
-    {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
-    }
 }
 
 // Convert a FDCAN_data_length_code to number of bytes in a message
