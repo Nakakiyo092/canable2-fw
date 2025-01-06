@@ -40,7 +40,7 @@ void led_init()
 }
 
 // Turn green LED on/off
-void led_green_on(enum led_state state)
+void led_turn_green(enum led_state state)
 {
     HAL_GPIO_WritePin(LED_GREEN, state);
 }

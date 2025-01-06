@@ -3,11 +3,11 @@
 //
 
 #include "stm32g4xx_hal.h"
-#include "slcan.h"
 #include "usbd_cdc_if.h"
 #include "can.h"
-#include "led.h"
 #include "error.h"
+#include "led.h"
+#include "slcan.h"
 #include "system.h"
 
 // Private variables
@@ -392,6 +392,12 @@ void can_process(void)
 
             led_blink_blue();
         }
+    }
+
+    if (bus_state == OFF_BUS)
+    {
+        led_turn_green(LED_ON);
+        // TODO stop can tx/rx and clear can buffer
     }
 }
 

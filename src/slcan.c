@@ -7,6 +7,7 @@
 #include "usbd_cdc_if.h"
 #include "can.h"
 #include "error.h"
+#include "led.h"
 #include "nvm.h"
 #include "slcan.h"
 
