@@ -7,9 +7,10 @@
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
 #include "can.h"
+#include "led.h"
+#include "nvm.h"
 #include "slcan.h"
 #include "system.h"
-#include "led.h"
 
 int main(void)
 {
@@ -17,6 +18,7 @@ int main(void)
     system_init();
     can_init();
     led_init();
+    nvm_init();
     usb_init();
 
     // Power-on blink sequence

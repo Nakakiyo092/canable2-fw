@@ -1,5 +1,5 @@
 //
-// LED: Handles blinking of status lights
+// LED: handles blinking of status lights
 //
 
 #include "stm32g4xx_hal.h"
@@ -37,7 +37,6 @@ void led_init()
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = 0;
     HAL_GPIO_Init(LED_GREEN_Port, &GPIO_InitStruct);
-
 
     HAL_GPIO_WritePin(LED_GREEN, LED_ON); 
 }
