@@ -85,15 +85,6 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(rx_data[0], b"NA123\r"[0])
         self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
 
-        # check response to NA123
-        #self.send(b"NA123\r")
-        #time.sleep(0.1)         # Extra wait for flash update
-        #self.assertEqual(self.receive(), b"\r")
-
-        # check response to N
-        #self.send(b"N\r")
-        #self.assertEqual(self.receive(), b"NA123\r")
-
 
     def test_blank_command(self):
         # check response to [CR]
