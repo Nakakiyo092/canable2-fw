@@ -73,8 +73,8 @@ class SlcanTestCase(unittest.TestCase):
         # check response to V
         self.send(b"V\r")
         rx_data = self.receive()
-        self.assertEqual(rx_data[0], b"V1013\r"[0])
         self.assertGreaterEqual(len(rx_data), len(b"V1013\r"))
+        self.assertEqual(rx_data[0], b"V1013\r"[0])
 
 
     def test_N_command(self):
@@ -82,8 +82,8 @@ class SlcanTestCase(unittest.TestCase):
         # check response to N
         self.send(b"N\r")
         rx_data = self.receive()
-        self.assertEqual(rx_data[0], b"NA123\r"[0])
         self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
+        self.assertEqual(rx_data[0], b"NA123\r"[0])
 
 
     def test_blank_command(self):
