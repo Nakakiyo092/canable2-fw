@@ -11,7 +11,7 @@ static uint32_t err_time[ERR_MAX] = {0};
 static uint32_t err_last_time = 0;
 
 // Assert an error: sets err register bit and records timestamp
-void error_assert(error_flag_t err)
+void error_assert(enum error_flag err)
 {
     // Return on invalid error
     if (err >= ERR_MAX)
@@ -30,7 +30,7 @@ void error_assert(error_flag_t err)
 }
 
 // Get the systick at which an error last occurred, or 0 otherwise
-uint32_t error_get_timestamp(error_flag_t err)
+uint32_t error_get_timestamp(enum error_flag err)
 {
     // Return on invalid error
     if (err >= ERR_MAX)
@@ -46,7 +46,7 @@ uint32_t error_get_last_timestamp(void)
 }
 
 // Returns 1 if the error has occurred since boot
-uint8_t error_occurred(error_flag_t err)
+uint8_t error_occurred(enum error_flag err)
 {
     // Return on invalid error
     if (err >= ERR_MAX)
@@ -65,4 +65,7 @@ uint32_t error_get_register(void)
 void error_clear(void)
 {
     err_reg = 0;
+    enum error_flag err;
+    for (err = 0; err < ERR_MAX; err++) err_time[err] = 0;
+    err_last_time = 0;
 }
