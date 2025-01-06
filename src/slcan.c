@@ -16,14 +16,14 @@
 
 // Private variables
 char *fw_id = "VL2K0 " GIT_VERSION " " GIT_REMOTE "\r";
-static uint8_t slcan_timestamp_mode = 0;
+static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_last_timestamp = 0;
 static uint32_t slcan_last_time_ms = 0;
 
 // Private methods
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
 static uint8_t __hal_dlc_code_to_std_dlc_code(uint32_t hal_dlc_code);
-static uint32_t slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
+static HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
 static void slcan_open_channel(void);
 static void slcan_listen_channel(void);
 static void slcan_loop_channel(void);
@@ -124,9 +124,13 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
     if (slcan_timestamp_mode == SLCAN_TIMESTAMP_RX_MILI)
     {
         uint32_t current_time_ms = HAL_GetTick();
-        uint32_t timeDiff = (current_time_ms >= slcan_last_time_ms) ? (current_time_ms - slcan_last_time_ms) : (UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms);
+        uint32_t time_diff;
+        if (slcan_last_time_ms <= current_time_ms)
+            time_diff = current_time_ms - slcan_last_time_ms;
+        else
+            time_diff = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
 
-        slcan_last_timestamp = (slcan_last_timestamp + timeDiff % 60000) % 60000;
+        slcan_last_timestamp = (slcan_last_timestamp + time_diff % 60000) % 60000;
         slcan_last_time_ms = current_time_ms;
 
         buf[msg_idx++] = ((slcan_last_timestamp >> 12) & 0xF);
@@ -170,6 +174,9 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
             .MessageMarker = 0,                       // ?
         };
     uint8_t frame_data[64] = {0};
+
+    // Blink blue LED as slcan rx if off bus
+    if (can_get_bus_state() == OFF_BUS) led_blink_blue();
 
     // Reply OK to a blank command
     if (len == 0)
@@ -405,7 +412,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 }
 
 // Convert from ASCII to number (2nd character to end)
-uint32_t slcan_convert_str_to_number(uint8_t *buf, uint8_t len)
+HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len)
 {
     // Convert from ASCII (2nd character to end)
     for (uint8_t i = 1; i < len; i++)
@@ -606,7 +613,7 @@ void slcan_report_status_flags(void)
     if (can_get_bus_state() == ON_BUS)
     {
         uint8_t status = 0;
-        uint32_t err_reg = error_get_register();
+        enum error_flag err_reg = error_get_register();
 
         status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
         status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;

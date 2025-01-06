@@ -20,7 +20,7 @@ void error_assert(enum error_flag err);
 uint32_t error_get_timestamp(enum error_flag err);
 uint32_t error_get_last_timestamp(void);
 uint8_t error_occurred(enum error_flag err);
-uint32_t error_get_register(void);
+enum error_flag error_get_register(void);
 void error_clear();
 
 #endif /* INC_ERROR_H_ */
