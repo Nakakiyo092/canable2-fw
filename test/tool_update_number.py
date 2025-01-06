@@ -74,8 +74,8 @@ class SlcanTestCase(unittest.TestCase):
         # check response to N
         self.send(b"N\r")
         rx_data = self.receive()
-        self.assertEqual(rx_data[0], b"NA123\r"[0])
         self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
+        self.assertEqual(rx_data[0], b"NA123\r"[0])
 
         # update serial number
         self.send(b"NB001\r")
