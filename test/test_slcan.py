@@ -256,6 +256,49 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
 
 
+    def test_Q_command(self):
+        # check response to Q with CAN port closed
+        for idx in range(0, 10):
+            cmd = "Q" + str(idx) + "\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\a")
+
+        # check response to Q in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for idx in range(0, 10):
+            cmd = "Q" + str(idx) + "\r"
+            self.send(cmd.encode())
+            if idx in (0, 1, 2):
+                self.assertEqual(self.receive(), b"\r")
+            else:
+                self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response to Q in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for idx in range(0, 10):
+            cmd = "Z" + str(idx) + "\r"
+            self.send(cmd.encode())
+            if idx in (0, 1, 2):
+                self.assertEqual(self.receive(), b"\r")
+            else:
+                self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        cmd = "Q" + "\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+
+
     def test_send_command(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
