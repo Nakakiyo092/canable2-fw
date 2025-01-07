@@ -283,7 +283,7 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         for idx in range(0, 10):
-            cmd = "Z" + str(idx) + "\r"
+            cmd = "Q" + str(idx) + "\r"
             self.send(cmd.encode())
             if idx in (0, 1, 2):
                 self.assertEqual(self.receive(), b"\r")

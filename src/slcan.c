@@ -668,7 +668,7 @@ void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
             return;
         }
 
-        if (nvm_update_startup_cfg(buf[1]) == HAL_OK)
+        if (nvm_update_startup_cfg(buf[1]) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
