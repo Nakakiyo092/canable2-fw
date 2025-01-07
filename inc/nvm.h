@@ -7,6 +7,6 @@ HAL_StatusTypeDef nvm_get_serial_number(uint16_t *num);
 HAL_StatusTypeDef nvm_update_serial_number(uint16_t num);
 
 HAL_StatusTypeDef nvm_apply_startup_cfg(void);
-HAL_StatusTypeDef nvm_update_startup_cfg(enum slcan_auto_startup_mode mode);
+HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode);
 
 #endif // _NVM_H

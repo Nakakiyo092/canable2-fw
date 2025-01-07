@@ -606,7 +606,7 @@ void slcan_parse_str_number(uint8_t *buf, uint8_t len)
         char numstr[64] = {0};
         if (nvm_get_serial_number(&serial) == HAL_OK)
         {
-            snprintf(numstr, 64, "N%04X\r", );
+            snprintf(numstr, 64, "N%04X\r", serial);
             cdc_transmit((uint8_t *)numstr, strlen(numstr));
         }
         else
@@ -685,7 +685,7 @@ void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
 }
 
 // Set the timestamp mode
-void slcan_set_timestamp_mode(enum slcan_timestamp_mode mode);
+void slcan_set_timestamp_mode(enum slcan_timestamp_mode mode)
 {
     if (mode < SLCAN_TIMESTAMP_INVALID)
         slcan_timestamp_mode = mode;
@@ -693,7 +693,7 @@ void slcan_set_timestamp_mode(enum slcan_timestamp_mode mode);
 }
 
 // Report the current timestamp mode
-enum slcan_timestamp_mode slcan_get_timestamp_mode(void);
+enum slcan_timestamp_mode slcan_get_timestamp_mode(void)
 {
     return slcan_timestamp_mode;
 }

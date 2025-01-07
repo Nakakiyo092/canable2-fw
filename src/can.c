@@ -10,6 +10,10 @@
 #include "slcan.h"
 #include "system.h"
 
+// CAN transmit buffering
+#define TXQUEUE_LEN 64     // Number of buffers allocated
+#define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
+
 // Cirbuf structure for CAN TX frames
 struct can_tx_buf
 {
@@ -19,10 +23,6 @@ struct can_tx_buf
     uint16_t tail;                              // Tail pointer
     uint8_t full;                               // TODO: Set this when we are full, clear when the tail moves one.
 };
-
-// CAN transmit buffering
-#define TXQUEUE_LEN 64     // Number of buffers allocated
-#define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
 
 // Private variables
 static FDCAN_HandleTypeDef can_handle;
@@ -448,13 +448,13 @@ uint8_t can_is_msg_pending(uint8_t fifo)
 }
 
 // Get the data bitrate configuration of the CAN peripheral
-struct can_bitrate_cfg can_set_data_bitrate_cfg(void)
+struct can_bitrate_cfg can_get_data_bitrate_cfg(void)
 {
     return bitrate_data;
 }
 
-// Set the nominal bitrate configuration of the CAN peripheral
-struct can_bitrate_cfg can_set_bitrate_cfg(void)
+// Get the nominal bitrate configuration of the CAN peripheral
+struct can_bitrate_cfg can_get_bitrate_cfg(void)
 {
     return bitrate_nominal;
 }
