@@ -98,7 +98,7 @@ HAL_StatusTypeDef nvm_apply_startup_cfg(void)
     if (SLCAN_AUTO_STARTUP_INVALID <= startup_mode)
         return HAL_ERROR;
 
-    uint8_t timestamp_mode = (uint8_t)((nvm_serial_number_raw >> 8) & 0xF);
+    uint8_t timestamp_mode = (uint8_t)((nvm_stp_config_raw >> 8) & 0xF);
 
     if (SLCAN_TIMESTAMP_INVALID <= timestamp_mode)
         return HAL_ERROR;
@@ -157,29 +157,29 @@ HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
     // Make raw data for startup configuration
     uint64_t startup_cfg = 0;
 
-    startup_cfg = (startup_cfg & mode);
+    startup_cfg = (startup_cfg | mode);
 
     if (0xFF < slcan_get_timestamp_mode()) return HAL_ERROR;
-    startup_cfg = (startup_cfg & (slcan_get_timestamp_mode() << 8));
+    startup_cfg = (startup_cfg | (slcan_get_timestamp_mode() << 8));
 
     // Make raw data for nominal bitrate
     uint64_t nom_bitrate = 0;
 
     if (0xFF < can_get_bitrate_cfg().prescaler) return HAL_ERROR;
-    nom_bitrate = (nom_bitrate & can_get_bitrate_cfg().prescaler);
-    nom_bitrate = (nom_bitrate & (can_get_bitrate_cfg().time_seg1 << 8));
-    nom_bitrate = (nom_bitrate & (can_get_bitrate_cfg().time_seg2 << 16));
-    nom_bitrate = (nom_bitrate & (can_get_bitrate_cfg().sjw << 24));
+    nom_bitrate = (nom_bitrate | can_get_bitrate_cfg().prescaler);
+    nom_bitrate = (nom_bitrate | (can_get_bitrate_cfg().time_seg1 << 8));
+    nom_bitrate = (nom_bitrate | (can_get_bitrate_cfg().time_seg2 << 16));
+    nom_bitrate = (nom_bitrate | (can_get_bitrate_cfg().sjw << 24));
 
 
     // Make raw data for data bitrate
     uint64_t data_bitrate = 0;
 
     if (0xFF < can_get_data_bitrate_cfg().prescaler) return HAL_ERROR;
-    data_bitrate = (data_bitrate & can_get_data_bitrate_cfg().prescaler);
-    data_bitrate = (data_bitrate & (can_get_data_bitrate_cfg().time_seg1 << 8));
-    data_bitrate = (data_bitrate & (can_get_data_bitrate_cfg().time_seg2 << 16));
-    data_bitrate = (data_bitrate & (can_get_data_bitrate_cfg().sjw << 24));
+    data_bitrate = (data_bitrate | can_get_data_bitrate_cfg().prescaler);
+    data_bitrate = (data_bitrate | (can_get_data_bitrate_cfg().time_seg1 << 8));
+    data_bitrate = (data_bitrate | (can_get_data_bitrate_cfg().time_seg2 << 16));
+    data_bitrate = (data_bitrate | (can_get_data_bitrate_cfg().sjw << 24));
 
     // Check if the configuration is the same
     if (startup_cfg == nvm_stp_config_raw)
