@@ -64,7 +64,7 @@ HAL_StatusTypeDef nvm_get_serial_number(uint16_t *num)
 HAL_StatusTypeDef nvm_update_serial_number(uint16_t num)
 {
     // Check if the serial number is the same
-    if ((uint64_t)num == nvm_serial_number)
+    if ((uint64_t)num == nvm_serial_number_raw)
     {
         return HAL_OK;
     }
@@ -152,16 +152,15 @@ HAL_StatusTypeDef nvm_apply_startup_cfg(void)
 }
 
 // Update auto startup configuration
-HAL_StatusTypeDef nvm_update_startup_cfg(enum slcan_auto_startup_mode mode)
+HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
 {
     // Make raw data for startup configuration
     uint64_t startup_cfg = 0;
 
-    if (0xFF < mode) return HAL_ERROR;
-    startup_cfg = (startup_cfg & mode)
+    startup_cfg = (startup_cfg & mode);
 
-    if (0xFF < slcan_get_timestamp_mode(void)) return HAL_ERROR;
-    startup_cfg = (startup_cfg & (slcan_get_timestamp_mode(void) << 8));
+    if (0xFF < slcan_get_timestamp_mode()) return HAL_ERROR;
+    startup_cfg = (startup_cfg & (slcan_get_timestamp_mode() << 8));
 
     // Make raw data for nominal bitrate
     uint64_t nom_bitrate = 0;
