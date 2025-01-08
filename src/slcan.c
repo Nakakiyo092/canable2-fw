@@ -11,6 +11,13 @@
 #include "nvm.h"
 #include "slcan.h"
 
+// Status flags, value is bit position in the status flags
+enum slcan_status_flag
+{
+    STS_CAN_RX_FIFO_FULL = 0, /* Message loss. Not mean the buffer is just full. */
+    STS_CAN_TX_FIFO_FULL,     /* Message loss. Not mean the buffer is just full. */
+};
+
 #define SLCAN_RET_OK    ((uint8_t *)"\x0D")
 #define SLCAN_RET_ERR   ((uint8_t *)"\x07")
 #define SLCAN_RET_LEN   (1)
@@ -25,16 +32,17 @@ static uint32_t slcan_last_time_ms = 0;
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
 static uint8_t __hal_dlc_code_to_std_dlc_code(uint32_t hal_dlc_code);
 static HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
-static void slcan_open_channel(void);
-static void slcan_listen_channel(void);
-static void slcan_loop_channel(void);
-static void slcan_close_channel(void);
-static void slcan_set_bitrate(uint8_t *buf, uint8_t len);
-static void slcan_set_data_bitrate(uint8_t *buf, uint8_t len);
-static void slcan_set_timestamp(uint8_t *buf, uint8_t len);
-static void slcan_report_version(void);
-static void slcan_report_number(uint8_t *buf, uint8_t len);
-static void slcan_report_status_flags(void);
+static void slcan_parse_str_open(void);
+static void slcan_parse_str_listen(void);
+static void slcan_parse_str_loop(void);
+static void slcan_parse_str_close(void);
+static void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_version(void);
+static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_status_flags(void);
+static void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len);
 
 // Parse an incoming CAN frame into an outgoing slcan message
 int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data)
@@ -198,15 +206,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     {
     // Open channel (normal mode)
     case 'O':
-        slcan_open_channel();
+        slcan_parse_str_open();
         return;
     // Open channel (silent mode)
     case 'L':
-        slcan_listen_channel();
+        slcan_parse_str_listen();
         return;
     // Open channel (loopback mode)
     case '=':
-        slcan_loop_channel();
+        slcan_parse_str_loop();
         return;
 
     // Open channel (ex loopback mode)
@@ -229,15 +237,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Close channel
     case 'C':
-        slcan_close_channel();
+        slcan_parse_str_close();
         return;
     // Set nominal bitrate
     case 'S':
-        slcan_set_bitrate(buf, len);
+        slcan_parse_str_set_bitrate(buf, len);
         return;
     // Set data bitrate
     case 'Y':
-        slcan_set_data_bitrate(buf, len);
+        slcan_parse_str_set_data_bitrate(buf, len);
         return;
 
     // FIXME: Nonstandard!
@@ -258,19 +266,23 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Get version number in standard + CANable style
     case 'V':
-        slcan_report_version();
+        slcan_parse_str_version();
         return;
     // Get serial number
     case 'N':
-        slcan_report_number(buf, len);
+        slcan_parse_str_number(buf, len);
         return;
     // Read status flags
     case 'F':
-        slcan_report_status_flags();
+        slcan_parse_str_status_flags();
         return;
     // Set timestamp on/off
     case 'Z':
-        slcan_set_timestamp(buf, len);
+        slcan_parse_str_timestamp(buf, len);
+        return;
+    // Set auto startup mode
+    case 'Q':
+        slcan_parse_str_auto_startup(buf, len);
         return;
 
     // Transmit remote frame command
@@ -435,7 +447,7 @@ HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len)
 }
 
 // Open channel (normal mode)
-void slcan_open_channel(void)
+void slcan_parse_str_open(void)
 {
     error_clear();
     // Default to normal mode
@@ -455,7 +467,7 @@ void slcan_open_channel(void)
 }
 
 // Open channel (silent mode)
-void slcan_listen_channel(void)
+void slcan_parse_str_listen(void)
 {
     error_clear();
     // Mode silent
@@ -475,7 +487,7 @@ void slcan_listen_channel(void)
 }
 
 // Open channel (loopback mode)
-void slcan_loop_channel(void)
+void slcan_parse_str_loop(void)
 {
     error_clear();
     // Mode loopback
@@ -495,7 +507,7 @@ void slcan_loop_channel(void)
 }
 
 // Close channel
-void slcan_close_channel(void)
+void slcan_parse_str_close(void)
 {
     if (can_disable() == HAL_OK)
         cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
@@ -506,7 +518,7 @@ void slcan_close_channel(void)
 }
 
 // Set nominal bitrate
-void slcan_set_bitrate(uint8_t *buf, uint8_t len)
+void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
 {
     // Check for valid bitrate
     if (len < 2 || CAN_BITRATE_INVALID <= buf[1])
@@ -523,7 +535,7 @@ void slcan_set_bitrate(uint8_t *buf, uint8_t len)
 }
 
 // Set data bitrate
-void slcan_set_data_bitrate(uint8_t *buf, uint8_t len)
+void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len)
 {
     // Check for valid bitrate
     if (len < 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
@@ -552,7 +564,7 @@ void slcan_set_data_bitrate(uint8_t *buf, uint8_t len)
 }
 
 // Set timestamp on/off
-void slcan_set_timestamp(uint8_t *buf, uint8_t len)
+void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
 {
     // Set timestamp on/off
     if (can_get_bus_state() == OFF_BUS)
@@ -577,7 +589,7 @@ void slcan_set_timestamp(uint8_t *buf, uint8_t len)
 }
 
 // Get version number in standard + CANable style
-void slcan_report_version(void)
+void slcan_parse_str_version(void)
 {
     // Report firmware version and remote
     cdc_transmit((uint8_t *)fw_id, strlen(fw_id));
@@ -585,14 +597,22 @@ void slcan_report_version(void)
 }
 
 // Get serial number
-void slcan_report_number(uint8_t *buf, uint8_t len)
+void slcan_parse_str_number(uint8_t *buf, uint8_t len)
 {
     if (len != 5)
     {
         // Report serial number
+        uint16_t serial;
         char numstr[64] = {0};
-        snprintf(numstr, 64, "N%04X\r", nvm_get_serial_number());
-        cdc_transmit((uint8_t *)numstr, strlen(numstr));
+        if (nvm_get_serial_number(&serial) == HAL_OK)
+        {
+            snprintf(numstr, 64, "N%04X\r", serial);
+            cdc_transmit((uint8_t *)numstr, strlen(numstr));
+        }
+        else
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        }
         return;
     }
     else
@@ -608,7 +628,7 @@ void slcan_report_number(uint8_t *buf, uint8_t len)
 }
 
 // Read status flags
-void slcan_report_status_flags(void)
+void slcan_parse_str_status_flags(void)
 {
     // Return the status flags
     if (can_get_bus_state() == ON_BUS)
@@ -633,6 +653,49 @@ void slcan_report_status_flags(void)
     // This command also clear the RED Error LED.
     error_clear();
     return;
+}
+
+// Set auto startup mode
+void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
+{
+    // Set auto startup mode
+    if (can_get_bus_state() == ON_BUS)
+    {
+        // Check for valid command
+        if (len < 2 || SLCAN_AUTO_STARTUP_INVALID <= buf[1])
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        if (nvm_update_startup_cfg(buf[1]) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // Command works only when CAN channel is open.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+// Set the timestamp mode
+void slcan_set_timestamp_mode(enum slcan_timestamp_mode mode)
+{
+    if (mode < SLCAN_TIMESTAMP_INVALID)
+        slcan_timestamp_mode = mode;
+    return;
+}
+
+// Report the current timestamp mode
+enum slcan_timestamp_mode slcan_get_timestamp_mode(void)
+{
+    return slcan_timestamp_mode;
 }
 
 // Convert a FDCAN_data_length_code to number of bytes in a message

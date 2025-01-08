@@ -3,12 +3,12 @@
 //
 
 #include "stm32g4xx.h"
-#include "printf.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
 #include "can.h"
 #include "led.h"
 #include "nvm.h"
+#include "printf.h"
 #include "slcan.h"
 #include "system.h"
 
@@ -23,6 +23,8 @@ int main(void)
 
     // Power-on blink sequence
     led_blink_sequence(5);
+
+    nvm_apply_startup_cfg();
 
     while (1)
     {

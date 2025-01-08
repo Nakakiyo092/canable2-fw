@@ -10,23 +10,30 @@
 #include "slcan.h"
 #include "system.h"
 
+// CAN transmit buffering
+#define TXQUEUE_LEN 64     // Number of buffers allocated
+#define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
+
+// Cirbuf structure for CAN TX frames
+struct can_tx_buf
+{
+    uint8_t data[TXQUEUE_LEN][TXQUEUE_DATALEN]; // Data buffer
+    FDCAN_TxHeaderTypeDef header[TXQUEUE_LEN];  // Header buffer
+    uint16_t head;                              // Head pointer
+    uint16_t tail;                              // Tail pointer
+    uint8_t full;                               // TODO: Set this when we are full, clear when the tail moves one.
+};
+
 // Private variables
 static FDCAN_HandleTypeDef can_handle;
 // static FDCAN_FilterTypeDef filter;
-enum can_bus_state bus_state;
+static enum can_bus_state bus_state;
 static uint8_t can_autoretransmit = ENABLE;
 static struct can_tx_buf txqueue = {0};
-
-// Structure for CAN/FD bitrate configuration
-struct can_bitrate_cfg
-{
-    uint16_t prescaler;
-    uint8_t sjw;
-    uint8_t time_seg1;
-    uint8_t time_seg2;
-};
-
 static struct can_bitrate_cfg bitrate_nominal, bitrate_data = {0};
+
+// Private methods
+uint8_t can_is_msg_pending(uint8_t fifo);
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
 void can_init(void)
@@ -68,7 +75,7 @@ void can_init(void)
     // Reset the queue
     memset(&txqueue, 0, sizeof(txqueue));
 
-    // default to 125 kbit/s
+    // default to 125 kbit/s & 2Mbit/s
     can_set_bitrate(CAN_BITRATE_125K);
     can_set_data_bitrate(CAN_DATA_BITRATE_2M);
     can_handle.Instance = FDCAN1;
@@ -266,6 +273,34 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
     return HAL_OK;
 }
 
+// Set the data bitrate configuration of the CAN peripheral
+HAL_StatusTypeDef can_set_data_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
+{
+    if (bus_state == ON_BUS)
+    {
+        // cannot set bitrate while on bus
+        return HAL_ERROR;
+    }
+
+    bitrate_data = bitrate_cfg;
+
+    return HAL_OK;
+}
+
+// Set the nominal bitrate configuration of the CAN peripheral
+HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
+{
+    if (bus_state == ON_BUS)
+    {
+        // cannot set bitrate while on bus
+        return HAL_ERROR;
+    }
+
+    bitrate_nominal = bitrate_cfg;
+
+    return HAL_OK;
+}
+
 // Set CAN peripheral to the specific mode
 // normal: FDCAN_MODE_NORMAL
 // silent: FDCAN_MODE_BUS_MONITORING
@@ -350,7 +385,7 @@ HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_d
     return status;
 }
 
-// Process data from CAN tx /rx? circular buffers
+// Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
     while ((txqueue.tail != txqueue.head) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
@@ -410,6 +445,18 @@ uint8_t can_is_msg_pending(uint8_t fifo)
     }
 
     return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) > 0);
+}
+
+// Get the data bitrate configuration of the CAN peripheral
+struct can_bitrate_cfg can_get_data_bitrate_cfg(void)
+{
+    return bitrate_data;
+}
+
+// Get the nominal bitrate configuration of the CAN peripheral
+struct can_bitrate_cfg can_get_bitrate_cfg(void)
+{
+    return bitrate_nominal;
 }
 
 // Return reference to CAN handle

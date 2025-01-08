@@ -263,7 +263,7 @@ class LoopbackTestCase(unittest.TestCase):
 
         #print("time: ", last_time_ms)
 
-        sleep_time_ms = 10 * 1000
+        sleep_time_ms = 15 * 1000
         time.sleep(sleep_time_ms / 1000)
 
         self.send(b"t03F0\r")
@@ -281,8 +281,8 @@ class LoopbackTestCase(unittest.TestCase):
         else:
             diff_time_ms = (60000 + crnt_time_ms) - last_time_ms
 
-        # Proving 2% accuracy. 200ms should be acceptable for USB latency.
-        self.assertLess(abs(sleep_time_ms - diff_time_ms), 200)
+        # Proving 2% accuracy. 300ms should be acceptable for USB latency.
+        self.assertLess(abs(sleep_time_ms - diff_time_ms), 300)
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
