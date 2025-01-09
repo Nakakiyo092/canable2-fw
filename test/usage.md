@@ -5,14 +5,14 @@
 3. Run test scripts
 	
 
-## Reference
+## Reference command for linux
 
 ### Search device command
-ls /dev/tty*
+`ls /dev/tty*`
 
 ### Set authority command
-sudo chmod 666 /dev/ttyACM0
+`sudo chmod 666 /dev/ttyACM0`
 
 ### Communicate with device
-screen /dev/ttyACM0
+`screen /dev/ttyACM0`
 
