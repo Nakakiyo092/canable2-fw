@@ -55,35 +55,18 @@ class SlcanTestCase(unittest.TestCase):
     def receive(self) -> bytes:
         rx_data = b""
         cycle = 0.02    # sec
-        timeout = 10    # sec
+        timeout = 1     # sec
         for i in range(0, int(timeout / cycle)):
             time.sleep(cycle)
             tmp = self.canable.read_all()
             rx_data = rx_data + tmp
-            if len(tmp) == 0:
+            if len(tmp) == 0 and len(rx_data) != 0:
                 break
 
         if (self.print_on):
             self.print_slcan_data("R", rx_data)
         
         return rx_data
-
-
-    def test_V_command(self):
-        # check response to V
-        self.send(b"V\r")
-        rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"V1013\r"))
-        self.assertEqual(rx_data[0], b"V1013\r"[0])
-
-
-    def test_N_command(self):
-        #self.print_on = True
-        # check response to N
-        self.send(b"N\r")
-        rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
-        self.assertEqual(rx_data[0], b"NA123\r"[0])
 
 
     def test_blank_command(self):
@@ -98,6 +81,31 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"")      # message incomplete without [CR]
 
         self.send(b"\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_V_command(self):
+        # check response to V
+        self.send(b"V\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"V1013\r"))
+        self.assertEqual(rx_data[0], b"V1013\r"[0])
+        self.send(b"V0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_N_command(self):
+        #self.print_on = True
+        # check response to N
+        self.send(b"N\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
+        self.assertEqual(rx_data[0], b"NA123\r"[0])
+        self.send(b"N0\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"NA12\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"NA1230\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -138,6 +146,14 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
+        # invalid format
+        self.send(b"O0\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"L0\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"C0\r")
+        self.assertEqual(self.receive(), b"\a")
+
 
     def test_S_command(self):
         # check response to S with CAN port closed
@@ -171,8 +187,9 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # invalid format
-        cmd = "S" + "\r"
-        self.send(cmd.encode())
+        self.send(b"S\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"S00\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -211,8 +228,9 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # invalid format
-        cmd = "Y" + "\r"
-        self.send(cmd.encode())
+        self.send(b"Y\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"Y00\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -251,8 +269,9 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # invalid format
-        cmd = "Z" + "\r"
-        self.send(cmd.encode())
+        self.send(b"Z\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"Z00\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -294,9 +313,14 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # invalid format
-        cmd = "Q" + "\r"
-        self.send(cmd.encode())
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"Q\r")
         self.assertEqual(self.receive(), b"\a")
+        self.send(b"Q00\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
 
     def test_send_command(self):
@@ -331,8 +355,7 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # FIXME unable to send DLC > 8
-        self.send(b"r03F8\r")
+        self.send(b"r03FF\r")
         self.assertEqual(self.receive(), b"z\r")
         self.send(b"t03F80011223344556677\r")
         self.assertEqual(self.receive(), b"z\r")
@@ -341,8 +364,7 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"b03FF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
         self.assertEqual(self.receive(), b"z\r")
 
-        # FIXME unable to send DLC > 8
-        self.send(b"R0137FEC88\r")
+        self.send(b"R0137FEC8F\r")
         self.assertEqual(self.receive(), b"Z\r")
         self.send(b"T0137FEC880011223344556677\r")
         self.assertEqual(self.receive(), b"Z\r")
@@ -402,6 +424,21 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
+        # check response to too long command in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F00\r")
+            self.assertEqual(self.receive(), b"\a")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC800\r")
+            self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
         # check response to invalid command in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
@@ -422,46 +459,26 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         self.send(b"r8000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME no check for invalid id
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"t8000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"t03F9001122334455667788\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"d8000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"b8000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
 
         self.send(b"R200000000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"T200000000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"T03F9001122334455667788\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"D200000000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"B200000000\r")
-        #self.assertEqual(self.receive(), b"\a")
-        # FIXME
-        self.receive()
+        self.assertEqual(self.receive(), b"\a")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

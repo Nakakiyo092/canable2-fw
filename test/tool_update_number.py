@@ -55,12 +55,12 @@ class SlcanTestCase(unittest.TestCase):
     def receive(self) -> bytes:
         rx_data = b""
         cycle = 0.02    # sec
-        timeout = 10    # sec
+        timeout = 1     # sec
         for i in range(0, int(timeout / cycle)):
             time.sleep(cycle)
             tmp = self.canable.read_all()
             rx_data = rx_data + tmp
-            if len(tmp) == 0:
+            if len(tmp) == 0 and len(rx_data) != 0:
                 break
 
         if (self.print_on):
