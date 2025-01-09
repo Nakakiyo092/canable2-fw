@@ -194,14 +194,14 @@ void cdc_process(void)
             // Take up to the number of bytes to fill the linbuf
             if(linbuf_ctr >= TX_LINBUF_SIZE)
                 break;
-            }
+        }
 
-            if(linbuf_ctr > 0)
-            {
-                // Set transmit buffer and start TX
-                USBD_CDC_SetTxBuffer(&hUsbDeviceFS, tx_linbuf, linbuf_ctr);
-                USBD_CDC_TransmitPacket(&hUsbDeviceFS);
-            }
+        if(linbuf_ctr > 0)
+        {
+            // Set transmit buffer and start TX
+            USBD_CDC_SetTxBuffer(&hUsbDeviceFS, tx_linbuf, linbuf_ctr);
+            USBD_CDC_TransmitPacket(&hUsbDeviceFS);
+        }
     }
 
     // Process receive buffer

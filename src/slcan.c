@@ -32,16 +32,16 @@ static uint32_t slcan_last_time_ms = 0;
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
 static uint8_t __hal_dlc_code_to_std_dlc_code(uint32_t hal_dlc_code);
 static HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
-static void slcan_parse_str_open(void);
-static void slcan_parse_str_listen(void);
-static void slcan_parse_str_loop(void);
-static void slcan_parse_str_close(void);
+static void slcan_parse_str_open(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_listen(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_loop(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_close(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len);
-static void slcan_parse_str_version(void);
+static void slcan_parse_str_version(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
-static void slcan_parse_str_status_flags(void);
+static void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len);
 
 // Parse an incoming CAN frame into an outgoing slcan message
@@ -206,15 +206,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     {
     // Open channel (normal mode)
     case 'O':
-        slcan_parse_str_open();
+        slcan_parse_str_open(buf, len);
         return;
     // Open channel (silent mode)
     case 'L':
-        slcan_parse_str_listen();
+        slcan_parse_str_listen(buf, len);
         return;
     // Open channel (loopback mode)
     case '=':
-        slcan_parse_str_loop();
+        slcan_parse_str_loop(buf, len);
         return;
 
     // Open channel (ex loopback mode)
@@ -237,7 +237,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Close channel
     case 'C':
-        slcan_parse_str_close();
+        slcan_parse_str_close(buf, len);
         return;
     // Set nominal bitrate
     case 'S':
@@ -266,7 +266,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Get version number in standard + CANable style
     case 'V':
-        slcan_parse_str_version();
+        slcan_parse_str_version(buf, len);
         return;
     // Get serial number
     case 'N':
@@ -274,7 +274,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Read status flags
     case 'F':
-        slcan_parse_str_status_flags();
+        slcan_parse_str_status_flags(buf, len);
         return;
     // Set timestamp on/off
     case 'Z':
@@ -357,20 +357,39 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         frame_header.Identifier += buf[parse_loc++];
     }
 
+    // If CAN ID is too large
+    if (frame_header.IdType == FDCAN_STANDARD_ID && 0x7FF < frame_header.Identifier)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+    else if (frame_header.IdType == FDCAN_EXTENDED_ID && 0x1FFFFFFF < frame_header.Identifier)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }    
+
     // Attempt to parse DLC and check sanity
     uint8_t dlc_code_raw = buf[parse_loc++];
 
     // If dlc is too long for an FD frame
-    // TODO check CAN protocol if a remote frame is allowed to have a DLC > 8
     if (frame_header.FDFormat == FDCAN_FD_CAN && dlc_code_raw > 0xF)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
-    if (frame_header.FDFormat == FDCAN_CLASSIC_CAN && dlc_code_raw > 0x8)
+    if (frame_header.FDFormat == FDCAN_CLASSIC_CAN)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
+        if (frame_header.TxFrameType == FDCAN_DATA_FRAME && dlc_code_raw > 0x8)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+        else if  (frame_header.TxFrameType == FDCAN_REMOTE_FRAME && dlc_code_raw > 0xF)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
     }
 
     // Set TX frame DLC according to HAL
@@ -399,7 +418,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Check command length
     // parse_loc is always updated after a byte is parsed
-    if (len < parse_loc)
+    if (len != parse_loc)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
@@ -447,8 +466,15 @@ HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len)
 }
 
 // Open channel (normal mode)
-void slcan_parse_str_open(void)
+void slcan_parse_str_open(uint8_t *buf, uint8_t len)
 {
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
     error_clear();
     // Default to normal mode
     if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
@@ -467,8 +493,15 @@ void slcan_parse_str_open(void)
 }
 
 // Open channel (silent mode)
-void slcan_parse_str_listen(void)
+void slcan_parse_str_listen(uint8_t *buf, uint8_t len)
 {
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
     error_clear();
     // Mode silent
     if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
@@ -487,8 +520,15 @@ void slcan_parse_str_listen(void)
 }
 
 // Open channel (loopback mode)
-void slcan_parse_str_loop(void)
+void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
 {
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
     error_clear();
     // Mode loopback
     if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
@@ -507,8 +547,15 @@ void slcan_parse_str_loop(void)
 }
 
 // Close channel
-void slcan_parse_str_close(void)
+void slcan_parse_str_close(uint8_t *buf, uint8_t len)
 {
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
     if (can_disable() == HAL_OK)
         cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
     else
@@ -521,7 +568,7 @@ void slcan_parse_str_close(void)
 void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
 {
     // Check for valid bitrate
-    if (len < 2 || CAN_BITRATE_INVALID <= buf[1])
+    if (len != 2 || CAN_BITRATE_INVALID <= buf[1])
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
@@ -538,7 +585,7 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
 void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len)
 {
     // Check for valid bitrate
-    if (len < 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
+    if (len != 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
@@ -570,7 +617,7 @@ void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
     if (can_get_bus_state() == OFF_BUS)
     {
         // Check for valid command
-        if (len < 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
+        if (len != 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
@@ -589,8 +636,15 @@ void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
 }
 
 // Get version number in standard + CANable style
-void slcan_parse_str_version(void)
+void slcan_parse_str_version(uint8_t *buf, uint8_t len)
 {
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
     // Report firmware version and remote
     cdc_transmit((uint8_t *)fw_id, strlen(fw_id));
     return;
@@ -599,7 +653,7 @@ void slcan_parse_str_version(void)
 // Get serial number
 void slcan_parse_str_number(uint8_t *buf, uint8_t len)
 {
-    if (len != 5)
+    if (len == 1)
     {
         // Report serial number
         uint16_t serial;
@@ -615,7 +669,7 @@ void slcan_parse_str_number(uint8_t *buf, uint8_t len)
         }
         return;
     }
-    else
+    else if (len == 5)
     {
         // Set serial number
         uint16_t serial = ((uint16_t)buf[1] << 12) + ((uint16_t)buf[2] << 8) + ((uint16_t)buf[3] << 4) + buf[4];
@@ -625,11 +679,23 @@ void slcan_parse_str_number(uint8_t *buf, uint8_t len)
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
 }
 
 // Read status flags
-void slcan_parse_str_status_flags(void)
+void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
 {
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
     // Return the status flags
     if (can_get_bus_state() == ON_BUS)
     {
@@ -662,7 +728,7 @@ void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
     if (can_get_bus_state() == ON_BUS)
     {
         // Check for valid command
-        if (len < 2 || SLCAN_AUTO_STARTUP_INVALID <= buf[1])
+        if (len != 2 || SLCAN_AUTO_STARTUP_INVALID <= buf[1])
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;

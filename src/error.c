@@ -56,7 +56,7 @@ uint8_t error_occurred(enum error_flag err)
 }
 
 // Return value of error register
-enum error_flag error_get_register(void)
+uint32_t error_get_register(void)
 {
     return err_reg;
 }
