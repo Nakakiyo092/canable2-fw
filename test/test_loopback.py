@@ -94,8 +94,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # FIXME unable to send DLC > 8
-        tx_data = b"r03F8\r"
+        tx_data = b"r03FF\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"z\r" + tx_data)
 
@@ -109,8 +108,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(tx_data)
         self.assertEqual(self.receive(), b"z\r" + tx_data)
 
-        # FIXME unable to send DLC > 8
-        tx_data = b"R0137FEC88\r"
+        tx_data = b"R0137FEC8F\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"Z\r" + tx_data)
 
@@ -151,8 +149,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"+\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # FIXME unable to send DLC > 8
-        tx_data = b"r03F8\r"
+        tx_data = b"r03FF\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"z\r" + tx_data)
 
@@ -166,8 +163,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(tx_data)
         self.assertEqual(self.receive(), b"z\r" + tx_data)
 
-        # FIXME unable to send DLC > 8
-        tx_data = b"R0137FEC88\r"
+        tx_data = b"R0137FEC8F\r"
         self.send(tx_data)
         self.assertEqual(self.receive(), b"Z\r" + tx_data)
 
@@ -183,6 +179,37 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
+
+
+    def test_nominal_bitrate(self):
+        #self.print_on = True
+        # check response to SEND in every nominal bitrate
+        for rate in range(0, 10):
+            cmd = "S" + str(rate) + "\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\r")
+            self.send(b"=\r")
+            self.assertEqual(self.receive(), b"\r")
+            tx_data = b"b03F80011223344556677\r"
+            self.send(tx_data)
+            self.assertEqual(self.receive(), b"z\r" + tx_data)
+            self.send(b"C\r")
+            self.assertEqual(self.receive(), b"\r")
+
+
+    def test_data_bitrate(self):
+        # check response to SEND in every data bitrate
+        for rate in (0, 1, 2, 4, 5):
+            cmd = "Y" + str(rate) + "\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\r")
+            self.send(b"=\r")
+            self.assertEqual(self.receive(), b"\r")
+            tx_data = b"b03F80011223344556677\r"
+            self.send(tx_data)
+            self.assertEqual(self.receive(), b"z\r" + tx_data)
+            self.send(b"C\r")
+            self.assertEqual(self.receive(), b"\r")
 
 
     def test_timestamp(self):
