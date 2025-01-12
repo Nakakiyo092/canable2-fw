@@ -17,7 +17,7 @@ class SlcanTestCase(unittest.TestCase):
         
         # connect to canable
         # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
+        self.canable = serial.Serial('/dev/ttyACM1', timeout=1, write_timeout=1)
 
         # clear buffer
         self.send(b"\r\r\r")
@@ -25,6 +25,12 @@ class SlcanTestCase(unittest.TestCase):
 
         # reset to default status
         self.send(b"C\r")
+        self.receive()
+        self.send(b"S4\r")
+        self.receive()
+        self.send(b"Y2\r")
+        self.receive()
+        self.send(b"Z0\r")
         self.receive()
 
 

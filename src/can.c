@@ -21,16 +21,16 @@ struct can_tx_buf
     FDCAN_TxHeaderTypeDef header[TXQUEUE_LEN];  // Header buffer
     uint16_t head;                              // Head pointer
     uint16_t tail;                              // Tail pointer
-    uint8_t full;                               // TODO: Set this when we are full, clear when the tail moves one.
+    uint8_t full;                               // Set this when we are full, clear when the tail moves one.
 };
 
 // Private variables
 static FDCAN_HandleTypeDef can_handle;
 // static FDCAN_FilterTypeDef filter;
-static enum can_bus_state bus_state;
+static enum can_bus_state can_bus_state;
 static uint8_t can_autoretransmit = ENABLE;
-static struct can_tx_buf txqueue = {0};
-static struct can_bitrate_cfg bitrate_nominal, bitrate_data = {0};
+static struct can_tx_buf can_tx_queue = {0};
+static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 // Private methods
 uint8_t can_is_msg_pending(uint8_t fifo);
@@ -73,19 +73,19 @@ void can_init(void)
     filter.FilterActivation = ENABLE;*/
 
     // Reset the queue
-    memset(&txqueue, 0, sizeof(txqueue));
+    memset(&can_tx_queue, 0, sizeof(can_tx_queue));
 
     // default to 125 kbit/s & 2Mbit/s
     can_set_bitrate(CAN_BITRATE_125K);
     can_set_data_bitrate(CAN_DATA_BITRATE_2M);
     can_handle.Instance = FDCAN1;
-    bus_state = OFF_BUS;
+    can_bus_state = OFF_BUS;
 }
 
 // Start the CAN peripheral
 HAL_StatusTypeDef can_enable(void)
 {
-    if (bus_state == OFF_BUS)
+    if (can_bus_state == OFF_BUS)
     {
         can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1; // 144Mhz
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
@@ -95,16 +95,16 @@ HAL_StatusTypeDef can_enable(void)
         can_handle.Init.TransmitPause = DISABLE;     // emz
         can_handle.Init.ProtocolException = DISABLE; // emz
 
-        can_handle.Init.NominalPrescaler = bitrate_nominal.prescaler;
-        can_handle.Init.NominalSyncJumpWidth = bitrate_nominal.sjw;
-        can_handle.Init.NominalTimeSeg1 = bitrate_nominal.time_seg1;
-        can_handle.Init.NominalTimeSeg2 = bitrate_nominal.time_seg2;
+        can_handle.Init.NominalPrescaler = can_bitrate_nominal.prescaler;
+        can_handle.Init.NominalSyncJumpWidth = can_bitrate_nominal.sjw;
+        can_handle.Init.NominalTimeSeg1 = can_bitrate_nominal.time_seg1;
+        can_handle.Init.NominalTimeSeg2 = can_bitrate_nominal.time_seg2;
 
         // FD only
-        can_handle.Init.DataPrescaler = bitrate_data.prescaler;
-        can_handle.Init.DataSyncJumpWidth = bitrate_data.sjw;
-        can_handle.Init.DataTimeSeg1 = bitrate_data.time_seg1;
-        can_handle.Init.DataTimeSeg2 = bitrate_data.time_seg2;
+        can_handle.Init.DataPrescaler = can_bitrate_data.prescaler;
+        can_handle.Init.DataSyncJumpWidth = can_bitrate_data.sjw;
+        can_handle.Init.DataTimeSeg1 = can_bitrate_data.time_seg1;
+        can_handle.Init.DataTimeSeg2 = can_bitrate_data.time_seg2;
 
         can_handle.Init.StdFiltersNbr = 0;
         can_handle.Init.ExtFiltersNbr = 0;
@@ -123,7 +123,11 @@ HAL_StatusTypeDef can_enable(void)
 
         HAL_FDCAN_Start(&can_handle);
 
-        bus_state = ON_BUS;
+        can_bus_state = ON_BUS;
+
+        // Empty tx buffer
+        can_tx_queue.tail = can_tx_queue.head;
+        can_tx_queue.full = 0;
 
         led_turn_green(LED_OFF);
 
@@ -135,11 +139,15 @@ HAL_StatusTypeDef can_enable(void)
 // Disable the CAN peripheral and go off-bus
 HAL_StatusTypeDef can_disable(void)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         HAL_FDCAN_Stop(&can_handle);
         HAL_FDCAN_DeInit(&can_handle);
-        bus_state = OFF_BUS;
+        can_bus_state = OFF_BUS;
+
+        // Empty tx buffer
+        can_tx_queue.tail = can_tx_queue.head;
+        can_tx_queue.full = 0;
 
         led_turn_green(LED_ON);
 
@@ -151,7 +159,7 @@ HAL_StatusTypeDef can_disable(void)
 // Set the data bitrate of the CAN peripheral
 HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
@@ -160,35 +168,35 @@ HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
     switch (bitrate)
     {
     case CAN_DATA_BITRATE_500K:
-        bitrate_data.prescaler = 8;
-        bitrate_data.sjw = 8;
-        bitrate_data.time_seg1 = 30;
-        bitrate_data.time_seg2 = 9;
+        can_bitrate_data.prescaler = 8;
+        can_bitrate_data.sjw = 8;
+        can_bitrate_data.time_seg1 = 30;
+        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_1M:
-        bitrate_data.prescaler = 4;
-        bitrate_data.sjw = 8;
-        bitrate_data.time_seg1 = 30;
-        bitrate_data.time_seg2 = 9;
+        can_bitrate_data.prescaler = 4;
+        can_bitrate_data.sjw = 8;
+        can_bitrate_data.time_seg1 = 30;
+        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_2M:
-        bitrate_data.prescaler = 2;
-        bitrate_data.sjw = 8;
-        bitrate_data.time_seg1 = 30;
-        bitrate_data.time_seg2 = 9;
+        can_bitrate_data.prescaler = 2;
+        can_bitrate_data.sjw = 8;
+        can_bitrate_data.time_seg1 = 30;
+        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_4M:
-        bitrate_data.prescaler = 1;
-        bitrate_data.sjw = 8;
-        bitrate_data.time_seg1 = 30;
-        bitrate_data.time_seg2 = 9;
+        can_bitrate_data.prescaler = 1;
+        can_bitrate_data.sjw = 8;
+        can_bitrate_data.time_seg1 = 30;
+        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_5M:
     default:
-        bitrate_data.prescaler = 1;
-        bitrate_data.sjw = 6;
-        bitrate_data.time_seg1 = 24;
-        bitrate_data.time_seg2 = 7;
+        can_bitrate_data.prescaler = 1;
+        can_bitrate_data.sjw = 6;
+        can_bitrate_data.time_seg1 = 24;
+        can_bitrate_data.time_seg2 = 7;
         break;
     }
 
@@ -198,7 +206,7 @@ HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
 // Set the nominal bitrate of the CAN peripheral
 HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
@@ -207,64 +215,64 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
     switch (bitrate)
     {
     case CAN_BITRATE_10K:
-        bitrate_nominal.prescaler = 200;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 200;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_20K:
-        bitrate_nominal.prescaler = 100;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 100;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_50K:
-        bitrate_nominal.prescaler = 40;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 40;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_83_3K:
-        bitrate_nominal.prescaler = 24;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 24;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_100K:
-        bitrate_nominal.prescaler = 20;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 20;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_125K:
-        bitrate_nominal.prescaler = 16;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 16;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_250K:
-        bitrate_nominal.prescaler = 8;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 8;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_500K:
-        bitrate_nominal.prescaler = 4;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 4;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_750K:
-        bitrate_nominal.prescaler = 4;
-        bitrate_nominal.sjw = 5;
-        bitrate_nominal.time_seg1 = 46;
-        bitrate_nominal.time_seg2 = 6;
+        can_bitrate_nominal.prescaler = 4;
+        can_bitrate_nominal.sjw = 5;
+        can_bitrate_nominal.time_seg1 = 46;
+        can_bitrate_nominal.time_seg2 = 6;
         break;
     case CAN_BITRATE_1000K:
-        bitrate_nominal.prescaler = 2;
-        bitrate_nominal.sjw = 8;
-        bitrate_nominal.time_seg1 = 70;
-        bitrate_nominal.time_seg2 = 9;
+        can_bitrate_nominal.prescaler = 2;
+        can_bitrate_nominal.sjw = 8;
+        can_bitrate_nominal.time_seg1 = 70;
+        can_bitrate_nominal.time_seg2 = 9;
         break;
     default:
         break;
@@ -276,13 +284,13 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
 // Set the data bitrate configuration of the CAN peripheral
 HAL_StatusTypeDef can_set_data_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
     }
 
-    bitrate_data = bitrate_cfg;
+    can_bitrate_data = bitrate_cfg;
 
     return HAL_OK;
 }
@@ -290,13 +298,13 @@ HAL_StatusTypeDef can_set_data_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 // Set the nominal bitrate configuration of the CAN peripheral
 HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
     }
 
-    bitrate_nominal = bitrate_cfg;
+    can_bitrate_nominal = bitrate_cfg;
 
     return HAL_OK;
 }
@@ -308,7 +316,7 @@ HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 // external: FDCAN_MODE_EXTERNAL_LOOPBACK
 HAL_StatusTypeDef can_set_mode(uint32_t mode)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         // cannot set silent mode while on bus
         return HAL_ERROR;
@@ -321,7 +329,7 @@ HAL_StatusTypeDef can_set_mode(uint32_t mode)
 // Set CAN peripheral to autoretransmit mode
 void can_set_autoretransmit(uint8_t autoretransmit)
 {
-    if (bus_state == ON_BUS)
+    if (can_bus_state == ON_BUS)
     {
         // Cannot set autoretransmission while on bus
         return;
@@ -339,11 +347,10 @@ void can_set_autoretransmit(uint8_t autoretransmit)
 // Send a message on the CAN bus. Called from USB ISR.
 HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
 {
-    if (bus_state == ON_BUS && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING)
+    if (can_bus_state == ON_BUS && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING)
     {
-        // If when we increment the head we're going to hit the tail
-        // (if we're filling the last spot in the queue)
-        if (((txqueue.head + 1) % TXQUEUE_LEN) == txqueue.tail)
+        // If the queue is full
+        if (can_tx_queue.full)
         {
             error_assert(ERR_FULLBUF_CANTX);
             return HAL_ERROR;
@@ -357,16 +364,17 @@ HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_d
             return HAL_ERROR;
 
         // Save the header to the circular buffer
-        txqueue.header[txqueue.head] = *tx_msg_header;
+        can_tx_queue.header[can_tx_queue.head] = *tx_msg_header;
 
         // Copy the data to the circular buffer
         for (uint8_t i = 0; i < len; i++)
         {
-            txqueue.data[txqueue.head][i] = tx_msg_data[i];
+            can_tx_queue.data[can_tx_queue.head][i] = tx_msg_data[i];
         }
 
         // Increment the head pointer
-        txqueue.head = (txqueue.head + 1) % TXQUEUE_LEN;
+        can_tx_queue.head = (can_tx_queue.head + 1) % TXQUEUE_LEN;
+        if (can_tx_queue.head == can_tx_queue.tail) can_tx_queue.full = 1;
     }
     else
     {
@@ -388,13 +396,14 @@ HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
-    while ((txqueue.tail != txqueue.head) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
+    while ((can_tx_queue.tail != can_tx_queue.head || can_tx_queue.full) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
     {
         HAL_StatusTypeDef status;
 
         // Transmit can frame
-        status = HAL_FDCAN_AddMessageToTxFifoQ(&can_handle, &txqueue.header[txqueue.tail], txqueue.data[txqueue.tail]);
-        txqueue.tail = (txqueue.tail + 1) % TXQUEUE_LEN;
+        status = HAL_FDCAN_AddMessageToTxFifoQ(&can_handle, &can_tx_queue.header[can_tx_queue.tail], can_tx_queue.data[can_tx_queue.tail]);
+        can_tx_queue.tail = (can_tx_queue.tail + 1) % TXQUEUE_LEN;
+        can_tx_queue.full = 0;
 
         // This drops the packet if it fails (no retry). Failure is unlikely
         // since we check if there is a TX mailbox free.
@@ -427,19 +436,19 @@ void can_process(void)
 
             led_blink_blue();
         }
+        // TOD: check if a message stuck
     }
 
-    if (bus_state == OFF_BUS)
+    if (can_bus_state == OFF_BUS)
     {
         led_turn_green(LED_ON);
-        // TODO stop can tx/rx and clear can buffer
     }
 }
 
 // Check if a CAN message has been received and is waiting in the FIFO
 uint8_t can_is_msg_pending(uint8_t fifo)
 {
-    if (bus_state == OFF_BUS)
+    if (can_bus_state == OFF_BUS)
     {
         return 0;
     }
@@ -450,13 +459,13 @@ uint8_t can_is_msg_pending(uint8_t fifo)
 // Get the data bitrate configuration of the CAN peripheral
 struct can_bitrate_cfg can_get_data_bitrate_cfg(void)
 {
-    return bitrate_data;
+    return can_bitrate_data;
 }
 
 // Get the nominal bitrate configuration of the CAN peripheral
 struct can_bitrate_cfg can_get_bitrate_cfg(void)
 {
-    return bitrate_nominal;
+    return can_bitrate_nominal;
 }
 
 // Return reference to CAN handle
@@ -468,5 +477,5 @@ FDCAN_HandleTypeDef *can_get_handle(void)
 // Return bus status
 enum can_bus_state can_get_bus_state(void)
 {
-    return bus_state;
+    return can_bus_state;
 }

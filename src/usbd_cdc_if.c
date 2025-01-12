@@ -3,9 +3,39 @@
 #include "system.h"
 #include "error.h"
 
+// This takes 4k of RAM.
+#define NUM_RX_BUFS 8
+#define RX_BUF_SIZE CDC_DATA_FS_MAX_PACKET_SIZE // Size of RX buffer item
+
+// CDC transmit buffering
+#define TX_LINBUF_SIZE 64 // Set to 64 for max single packet size
+#define USBTXQUEUE_LEN 10240 // Number of bytes allocated
+
+
+// Transmit buffering: circular buffer FIFO
+struct usb_tx_buf
+{
+	uint8_t data[USBTXQUEUE_LEN]; // Data buffer
+	uint32_t head; // Head pointer
+	uint32_t tail; // Tail pointer
+	uint8_t full;
+};
+
+// Receive buffering: circular buffer FIFO
+struct usb_rx_buf
+{
+	// Receive buffering: circular buffer FIFO
+	uint8_t buf[NUM_RX_BUFS][RX_BUF_SIZE];
+	uint32_t msglen[NUM_RX_BUFS];
+	uint32_t head;
+	uint32_t tail;
+	uint8_t full;
+};
+
+
 // Private variables
-static usbrx_buf_t rxbuf = {0};
-static usbtx_buf_t txbuf = {0};
+static struct usb_tx_buf txbuf = {0};
+static struct usb_rx_buf rxbuf = {0};
 static uint8_t tx_linbuf[TX_LINBUF_SIZE] = {0};
 static uint8_t slcan_str[SLCAN_MTU];
 static uint8_t slcan_str_index = 0;
@@ -35,10 +65,12 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
 // Initializes the CDC media low layer over the FS USB IP
 static int8_t CDC_Init_FS(void)
 {
-    rxbuf.head = 0;
-    rxbuf.tail = 0;
     txbuf.head = 0;
     txbuf.tail = 0;
+    txbuf.full = 0;
+    rxbuf.head = 0;
+    rxbuf.tail = 0;
+    rxbuf.full = 0;
 
     USBD_CDC_SetTxBuffer(&hUsbDeviceFS, tx_linbuf, 0);
     USBD_CDC_SetRxBuffer(&hUsbDeviceFS, rxbuf.buf[rxbuf.head]);
@@ -62,7 +94,7 @@ static int8_t CDC_DeInit_FS(void)
 static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 {
     /* USER CODE BEGIN 5 */
-    switch(cmd)
+    switch (cmd)
     {
         case CDC_SEND_ENCAPSULATED_COMMAND:
 
@@ -151,11 +183,7 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
     // Check for overflow!
-    // If when we increment the head we're going to hit the tail
-    // (if we're filling the last spot in the queue)
-    // FIXME: Use a "full" variable instead of wasting one
-    // spot in the cirbuf as we are doing now
-    if( ((rxbuf.head + 1) % NUM_RX_BUFS) == rxbuf.tail)
+    if (rxbuf.full)
     {
         error_assert(ERR_FULLBUF_USBRX);
 
@@ -169,6 +197,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
         // Save off length
         rxbuf.msglen[rxbuf.head] = *Len;
         rxbuf.head = (rxbuf.head + 1) % NUM_RX_BUFS;
+        if (rxbuf.head == rxbuf.tail) rxbuf.full = 1;
 
         // Start listening on next buffer. Previous buffer will be processed in main loop.
         USBD_CDC_SetRxBuffer(&hUsbDeviceFS, rxbuf.buf[rxbuf.head]);
@@ -183,13 +212,14 @@ void cdc_process(void)
 {
     // Process transmit buffer
     USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDeviceFS.pClassData;
-    if(hcdc->TxState == 0)
+    if (hcdc->TxState == 0)
     {
         uint16_t linbuf_ctr = 0;
-        while(txbuf.tail != txbuf.head)
+        while (txbuf.tail != txbuf.head || txbuf.full)
         {
             tx_linbuf[linbuf_ctr++] = txbuf.data[txbuf.tail];
             txbuf.tail = (txbuf.tail + 1UL) % USBTXQUEUE_LEN;
+            txbuf.full = 0;
 
             // Take up to the number of bytes to fill the linbuf
             if(linbuf_ctr >= TX_LINBUF_SIZE)
@@ -206,7 +236,7 @@ void cdc_process(void)
 
     // Process receive buffer
     system_irq_disable();
-    if(rxbuf.tail != rxbuf.head)
+    if (rxbuf.tail != rxbuf.head || rxbuf.full)
     {
         //  Process one whole buffer
         for (uint32_t i = 0; i < rxbuf.msglen[rxbuf.tail]; i++)
@@ -220,7 +250,7 @@ void cdc_process(void)
             else
             {
                 // Check for overflow of buffer
-                if(slcan_str_index >= SLCAN_MTU)
+                if (slcan_str_index >= SLCAN_MTU)
                 {
                     // TODO: Return here and discard this CDC buffer?
                     slcan_str_index = 0;
@@ -232,6 +262,7 @@ void cdc_process(void)
 
         // Move on to next buffer
         rxbuf.tail = (rxbuf.tail + 1) % NUM_RX_BUFS;
+        rxbuf.full = 0;
     }
     system_irq_enable();
 
@@ -242,7 +273,12 @@ void cdc_process(void)
 void cdc_transmit(uint8_t* buf, uint16_t len)
 {
     system_irq_disable();
-    if (len > (USBTXQUEUE_LEN + txbuf.tail - txbuf.head - 1U) % USBTXQUEUE_LEN)
+    uint32_t available_space = (USBTXQUEUE_LEN + txbuf.tail - txbuf.head) % USBTXQUEUE_LEN;
+    if (!txbuf.full && txbuf.tail == txbuf.head)
+    {
+        available_space = USBTXQUEUE_LEN;
+    }
+    if (len > available_space)
     {
         error_assert(ERR_FULLBUF_USBTX);
     }
@@ -256,7 +292,7 @@ void cdc_transmit(uint8_t* buf, uint16_t len)
             // Increment the head
             txbuf.head = (txbuf.head + 1UL) % USBTXQUEUE_LEN;
         }
-
+        if (txbuf.head == txbuf.tail) txbuf.full = 1;
     }
     system_irq_enable();
 }
