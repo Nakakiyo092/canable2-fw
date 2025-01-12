@@ -121,7 +121,6 @@ class ErrorTestCase(unittest.TestCase):
 
         # recieve all reply
         rx_data = self.receive()
-        rx_data = self.receive()    # just to make sure
 
         # print reply
         #rx_data = rx_data.replace(b"\r", b"[CR]\n")

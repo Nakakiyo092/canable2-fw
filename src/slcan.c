@@ -214,27 +214,9 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Open channel (loopback mode)
     case '=':
+    case '+':
         slcan_parse_str_loop(buf, len);
         return;
-
-    // Open channel (ex loopback mode)
-    case '+':
-        error_clear();
-        // Mode loopback
-        if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        // Open CAN port
-        if (can_enable() != HAL_OK)
-        {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return;
-
     // Close channel
     case 'C':
         slcan_parse_str_close(buf, len);
@@ -247,23 +229,6 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'Y':
         slcan_parse_str_set_data_bitrate(buf, len);
         return;
-
-    // FIXME: Nonstandard!
-    case 'A':
-        // Set autoretry command
-        if (buf[1] == 1)
-        {
-            // Mode 1: autoretry enabled (default)
-            can_set_autoretransmit(ENABLE);
-        }
-        else
-        {
-            // Mode 0: autoretry disabled
-            can_set_autoretransmit(DISABLE);
-        }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        return;
-
     // Get version number in standard + CANable style
     case 'V':
         slcan_parse_str_version(buf, len);
@@ -531,10 +496,21 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
 
     error_clear();
     // Mode loopback
-    if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
+    if (buf[0] == "+")
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
+        if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+    }
+    else
+    {
+        if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
     }
     // Open CAN port
     if (can_enable() != HAL_OK)
@@ -591,23 +567,11 @@ void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len)
         return;
     }
 
-    switch (buf[1])
-    {
-    case CAN_DATA_BITRATE_500K:
-    case CAN_DATA_BITRATE_1M:
-    case CAN_DATA_BITRATE_2M:
-    case CAN_DATA_BITRATE_4M:
-    case CAN_DATA_BITRATE_5M:
-        if (can_set_data_bitrate(buf[1]) == HAL_OK)
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
-        else
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
-    default:
-        // Invalid bitrate
+    if (can_set_data_bitrate(buf[1]) == HAL_OK)
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
-    }
+    return;
 }
 
 // Set timestamp on/off

@@ -2,8 +2,10 @@
 
 1. Connect PC and CANable
 2. CANable should not be connected to another CAN device
-3. Run test scripts
-	
+4. Search device and get the device name of CANable
+5. Update test scripts with the device name
+6. Run test scripts
+
 
 ## Reference command for linux
 

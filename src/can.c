@@ -28,6 +28,7 @@ struct can_tx_buf
 static FDCAN_HandleTypeDef can_handle;
 // static FDCAN_FilterTypeDef filter;
 static enum can_bus_state can_bus_state;
+static uint32_t can_mode = FDCAN_MODE_NORMAL;
 static uint8_t can_autoretransmit = ENABLE;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
@@ -90,7 +91,7 @@ HAL_StatusTypeDef can_enable(void)
         can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1; // 144Mhz
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
-        // can_handle.Init.Mode = FDCAN_MODE_NORMAL;
+        can_handle.Init.Mode = can_mode;
         can_handle.Init.AutoRetransmission = can_autoretransmit;
         can_handle.Init.TransmitPause = DISABLE;     // emz
         can_handle.Init.ProtocolException = DISABLE; // emz
@@ -165,39 +166,39 @@ HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
         return HAL_ERROR;
     }
 
+    // Set default bitrate 2M
+    can_bitrate_data.prescaler = 2;
+    can_bitrate_data.sjw = 8;
+    can_bitrate_data.time_seg1 = 30;
+    can_bitrate_data.time_seg2 = 9;
+
     switch (bitrate)
     {
     case CAN_DATA_BITRATE_500K:
         can_bitrate_data.prescaler = 8;
-        can_bitrate_data.sjw = 8;
-        can_bitrate_data.time_seg1 = 30;
-        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_1M:
         can_bitrate_data.prescaler = 4;
-        can_bitrate_data.sjw = 8;
-        can_bitrate_data.time_seg1 = 30;
-        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_2M:
-        can_bitrate_data.prescaler = 2;
-        can_bitrate_data.sjw = 8;
-        can_bitrate_data.time_seg1 = 30;
-        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_4M:
         can_bitrate_data.prescaler = 1;
-        can_bitrate_data.sjw = 8;
-        can_bitrate_data.time_seg1 = 30;
-        can_bitrate_data.time_seg2 = 9;
         break;
     case CAN_DATA_BITRATE_5M:
-    default:
         can_bitrate_data.prescaler = 1;
         can_bitrate_data.sjw = 6;
         can_bitrate_data.time_seg1 = 24;
         can_bitrate_data.time_seg2 = 7;
         break;
+    case CAN_DATA_BITRATE_8M:
+        can_bitrate_data.prescaler = 1;
+        can_bitrate_data.sjw = 3;
+        can_bitrate_data.time_seg1 = 14;
+        can_bitrate_data.time_seg2 = 5;
+        break;
+    default:
+        return HAL_ERROR;
     }
 
     return HAL_OK;
@@ -212,70 +213,45 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
         return HAL_ERROR;
     }
 
+    // Set default bitrate 125k
+    can_bitrate_nominal.prescaler = 16;
+    can_bitrate_nominal.sjw = 8;
+    can_bitrate_nominal.time_seg1 = 70;
+    can_bitrate_nominal.time_seg2 = 9;
+
     switch (bitrate)
     {
     case CAN_BITRATE_10K:
         can_bitrate_nominal.prescaler = 200;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_20K:
         can_bitrate_nominal.prescaler = 100;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_50K:
         can_bitrate_nominal.prescaler = 40;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
-        break;
-    case CAN_BITRATE_83_3K:
-        can_bitrate_nominal.prescaler = 24;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_100K:
         can_bitrate_nominal.prescaler = 20;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_125K:
-        can_bitrate_nominal.prescaler = 16;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_250K:
         can_bitrate_nominal.prescaler = 8;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     case CAN_BITRATE_500K:
         can_bitrate_nominal.prescaler = 4;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
-    case CAN_BITRATE_750K:
-        can_bitrate_nominal.prescaler = 4;
-        can_bitrate_nominal.sjw = 5;
-        can_bitrate_nominal.time_seg1 = 46;
-        can_bitrate_nominal.time_seg2 = 6;
+    case CAN_BITRATE_800K:
+        can_bitrate_nominal.prescaler = 2;
+        can_bitrate_nominal.sjw = 10;
+        can_bitrate_nominal.time_seg1 = 88;
+        can_bitrate_nominal.time_seg2 = 11;
         break;
     case CAN_BITRATE_1000K:
         can_bitrate_nominal.prescaler = 2;
-        can_bitrate_nominal.sjw = 8;
-        can_bitrate_nominal.time_seg1 = 70;
-        can_bitrate_nominal.time_seg2 = 9;
         break;
     default:
-        break;
+        return HAL_ERROR;
     }
 
     return HAL_OK;
@@ -321,7 +297,7 @@ HAL_StatusTypeDef can_set_mode(uint32_t mode)
         // cannot set silent mode while on bus
         return HAL_ERROR;
     }
-    can_handle.Init.Mode = mode;
+    can_mode = mode;
 
     return HAL_OK;
 }

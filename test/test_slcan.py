@@ -166,7 +166,10 @@ class SlcanTestCase(unittest.TestCase):
         for idx in range(0, 10):
             cmd = "S" + str(idx) + "\r"
             self.send(cmd.encode())
-            self.assertEqual(self.receive(), b"\r")
+            if idx <= 8:
+                self.assertEqual(self.receive(), b"\r")
+            else:
+                self.assertEqual(self.receive(), b"\a")
 
         # check response to S in CAN normal mode
         self.send(b"O\r")
@@ -204,7 +207,7 @@ class SlcanTestCase(unittest.TestCase):
         for idx in range(0, 10):
             cmd = "Y" + str(idx) + "\r"
             self.send(cmd.encode())
-            if idx in (0, 1, 2, 4, 5):
+            if idx in (0, 1, 2, 4, 5, 8):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
