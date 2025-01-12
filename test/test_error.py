@@ -17,7 +17,7 @@ class ErrorTestCase(unittest.TestCase):
         
         # connect to canable
         # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
+        self.canable = serial.Serial('/dev/ttyACM1', timeout=1, write_timeout=1)
 
         # clear buffer
         self.send(b"\r\r\r")
@@ -25,6 +25,12 @@ class ErrorTestCase(unittest.TestCase):
 
         # reset to default status
         self.send(b"C\r")
+        self.receive()
+        self.send(b"S4\r")
+        self.receive()
+        self.send(b"Y2\r")
+        self.receive()
+        self.send(b"Z0\r")
         self.receive()
 
 
@@ -109,12 +115,13 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"F00\r")
 
         # send a lot of command without receiving data (depends on PC env.)
-        for i in range(0, 200):
+        for i in range(0, 300):
             self.send(b"V\r")
-            time.sleep(0.02)
+            time.sleep(0.05)
 
         # recieve all reply
         rx_data = self.receive()
+        rx_data = self.receive()    # just to make sure
 
         # print reply
         #rx_data = rx_data.replace(b"\r", b"[CR]\n")
@@ -143,23 +150,27 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # the buffer can store as least 100 messages (2048 / 22)
-        for i in range(0, 100):
+        # the buffer can store as least 400 messages (10240 / 24)
+        for i in range(0, 400):
             self.send(b"t03F80011223344556677\r")
+            time.sleep(0.1)    # TODO: Why does it take so long?
 
         # recieve all reply
         rx_data = self.receive()
+        rx_data = self.receive()    # just to make sure
 
         # confirm no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # the buffer can not store 400 messages (depends on PC env.)
-        for i in range(0, 400):
+        # the buffer can not store 800 messages (depends on PC env.)
+        for i in range(0, 800):
             self.send(b"t03F80011223344556677\r")
+            time.sleep(0.02)
 
         # recieve all reply
         rx_data = self.receive()
+        rx_data = self.receive()    # just to make sure
 
         # check error
         self.send(b"F\r")

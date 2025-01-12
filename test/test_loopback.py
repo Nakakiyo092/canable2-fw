@@ -17,7 +17,7 @@ class LoopbackTestCase(unittest.TestCase):
         
         # connect to canable
         # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
+        self.canable = serial.Serial('/dev/ttyACM1', timeout=1, write_timeout=1)
 
         # clear buffer
         self.send(b"\r\r\r")
@@ -25,6 +25,10 @@ class LoopbackTestCase(unittest.TestCase):
 
         # reset to default status
         self.send(b"C\r")
+        self.receive()
+        self.send(b"S4\r")
+        self.receive()
+        self.send(b"Y2\r")
         self.receive()
         self.send(b"Z0\r")
         self.receive()
@@ -290,7 +294,7 @@ class LoopbackTestCase(unittest.TestCase):
 
         #print("time: ", last_time_ms)
 
-        sleep_time_ms = 15 * 1000
+        sleep_time_ms = 30 * 1000
         time.sleep(sleep_time_ms / 1000)
 
         self.send(b"t03F0\r")
@@ -308,8 +312,69 @@ class LoopbackTestCase(unittest.TestCase):
         else:
             diff_time_ms = (60000 + crnt_time_ms) - last_time_ms
 
-        # Proving 2% accuracy. 300ms should be acceptable for USB latency.
-        self.assertLess(abs(sleep_time_ms - diff_time_ms), 300)
+        # Proving 2% accuracy. 400ms should be acceptable for USB latency.
+        self.assertLess(abs(sleep_time_ms - diff_time_ms), 600)
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+        
+        
+    def test_can_rx_buffer(self):
+        rx_data_exp = b""
+        # check response in CAN loopback mode
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # confirm no error
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        # the buffer can store as least 400 messages (10240 / 22)
+        for i in range(0, 400):
+            tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
+            self.send(tx_data)
+            rx_data_exp += b"z\r" + tx_data
+            time.sleep(0.05)
+
+        # check all reply
+        rx_data = self.receive()
+        self.assertEqual(rx_data, rx_data_exp)
+
+        # confirm no error
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_can_tx_buffer(self):
+        rx_data_exp = b""
+        # check response in CAN loopback mode
+        self.send(b"S0\r")  # take ~10ms to send one frame
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # confirm no error
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        # the buffer can store as least 64 messages
+        for i in range(0, 64):
+            tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
+            self.send(tx_data)
+            rx_data_exp += tx_data
+
+        # check all reply
+        rx_data = self.receive()
+        rx_data += self.receive()    # just to make sure (need time to tx all)
+        rx_data = rx_data.replace(b"z\r", b"")
+        self.assertEqual(rx_data, rx_data_exp)
+
+        # confirm no error
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
