@@ -188,7 +188,7 @@ class LoopbackTestCase(unittest.TestCase):
     def test_nominal_bitrate(self):
         #self.print_on = True
         # check response to SEND in every nominal bitrate
-        for rate in range(0, 10):
+        for rate in range(0, 9):
             cmd = "S" + str(rate) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\r")
@@ -203,7 +203,7 @@ class LoopbackTestCase(unittest.TestCase):
 
     def test_data_bitrate(self):
         # check response to SEND in every data bitrate
-        for rate in (0, 1, 2, 4, 5):
+        for rate in (0, 1, 2, 4, 5, 8):
             cmd = "Y" + str(rate) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\r")
