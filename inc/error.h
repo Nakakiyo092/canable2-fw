@@ -4,10 +4,11 @@
 // Error flags, value is bit position in the error register
 enum error_flag
 {
-    ERR_PERIPHINIT = 0,
-    ERR_USBTX_BUSY,
+    //ERR_PERIPHINIT = 0,
+    //ERR_USBTX_BUSY,
+    ERR_CAN_RXFAIL = 0,
     ERR_CAN_TXFAIL,
-    ERR_CANRXFIFO_OVERFLOW,
+    //ERR_CANRXFIFO_OVERFLOW,
     ERR_FULLBUF_CANTX,
     ERR_FULLBUF_USBRX,
     ERR_FULLBUF_USBTX,
