@@ -496,7 +496,7 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
 
     error_clear();
     // Mode loopback
-    if (buf[0] == "+")
+    if (buf[0] == '+')
     {
         if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
         {
