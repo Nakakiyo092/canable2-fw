@@ -249,6 +249,13 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'Q':
         slcan_parse_str_auto_startup(buf, len);
         return;
+    // Debug function
+    case '?':
+        char dbgstr[64] = {0};
+        snprintf(dbgstr, 64, "?%02X\r", led_get_cycle_max_time());
+        cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
+        led_clear_cycle_max_time();
+        return;
 
     // Transmit remote frame command
     case 'r':

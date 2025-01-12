@@ -329,12 +329,18 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # the buffer can store as least 400 messages (10240 / 22)
         for i in range(0, 400):
             tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
             self.send(tx_data)
             rx_data_exp += b"z\r" + tx_data
-            time.sleep(0.05)
+            time.sleep(0.001)
 
         # check all reply
         rx_data = self.receive()
@@ -343,6 +349,12 @@ class LoopbackTestCase(unittest.TestCase):
         # confirm no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
+
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
@@ -360,6 +372,12 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # the buffer can store as least 64 messages
         for i in range(0, 64):
             tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
@@ -375,6 +393,12 @@ class LoopbackTestCase(unittest.TestCase):
         # confirm no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
+
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

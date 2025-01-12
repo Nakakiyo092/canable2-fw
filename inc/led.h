@@ -31,4 +31,8 @@ void led_blink_green(void);
 void led_blink_blue(void);
 void led_process(void);
 
+// Function for debug
+uint8_t led_get_cycle_max_time(void);
+void led_clear_cycle_max_time(void);
+
 #endif

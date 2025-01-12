@@ -114,10 +114,16 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # send a lot of command without receiving data (depends on PC env.)
         for i in range(0, 300):
             self.send(b"V\r")
-            time.sleep(0.05)
+            time.sleep(0.001)
 
         # recieve all reply
         rx_data = self.receive()
@@ -136,6 +142,12 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -149,10 +161,16 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # the buffer can store as least 400 messages (10240 / 24)
         for i in range(0, 400):
             self.send(b"t03F80011223344556677\r")
-            time.sleep(0.1)    # TODO: Why does it take so long?
+            time.sleep(0.001)    # TODO: Why does it take so long?
 
         # recieve all reply
         rx_data = self.receive()
@@ -162,10 +180,16 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # the buffer can not store 800 messages (depends on PC env.)
         for i in range(0, 800):
             self.send(b"t03F80011223344556677\r")
-            time.sleep(0.02)
+            time.sleep(0.001)
 
         # recieve all reply
         rx_data = self.receive()
@@ -178,6 +202,12 @@ class ErrorTestCase(unittest.TestCase):
         # check error clear
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
+
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
