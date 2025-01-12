@@ -121,7 +121,7 @@ class ErrorTestCase(unittest.TestCase):
         self.print_on = False       
 
         # send a lot of command without receiving data (depends on PC env.)
-        for i in range(0, 300):
+        for i in range(0, 400):
             self.send(b"V\r")
             time.sleep(0.001)
 
