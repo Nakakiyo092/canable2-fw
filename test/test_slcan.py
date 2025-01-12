@@ -17,7 +17,7 @@ class SlcanTestCase(unittest.TestCase):
         
         # connect to canable
         # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM1', timeout=1, write_timeout=1)
+        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
 
         # clear buffer
         self.send(b"\r\r\r")
@@ -291,6 +291,12 @@ class SlcanTestCase(unittest.TestCase):
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
 
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # check response to Q in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
@@ -302,6 +308,12 @@ class SlcanTestCase(unittest.TestCase):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
+
+        # check cycle time
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
