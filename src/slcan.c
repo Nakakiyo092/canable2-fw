@@ -14,8 +14,8 @@
 // Status flags, value is bit position in the status flags
 enum slcan_status_flag
 {
-    STS_CAN_RX_FIFO_FULL = 0, /* Message loss. Not mean the buffer is just full. */
-    STS_CAN_TX_FIFO_FULL,     /* Message loss. Not mean the buffer is just full. */
+    STS_CAN_RX_FIFO_FULL = 0, /* Probable message loss. Not mean the buffer is just full. */
+    STS_CAN_TX_FIFO_FULL,     /* Probable message loss. Not mean the buffer is just full. */
 };
 
 #define SLCAN_RET_OK    ((uint8_t *)"\x0D")
@@ -666,6 +666,7 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
         uint8_t status = 0;
         enum error_flag err_reg = error_get_register();
 
+        status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << STS_CAN_RX_FIFO_FULL)) : status;
         status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
         status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
         status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;

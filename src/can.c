@@ -34,7 +34,8 @@ static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 // Private methods
-uint8_t can_is_msg_pending(uint8_t fifo);
+uint8_t can_is_msg_pending(void);
+uint8_t can_is_msg_stack(void);
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
 void can_init(void)
@@ -391,8 +392,17 @@ void can_process(void)
         led_blink_green();
     }
 
+    // Check if multiple message is stored in buffer.
+    // This is unlikely since we loop cycle in less than several microseconds,
+    // which is far less than a transmission time of a CAN frame.
+    if (can_is_msg_stack())
+    {
+        // An error should be asserted because we do not have an overflow notification from the HAL driver.
+        error_assert(ERR_CAN_RXFAIL);
+    }
+
     // Message has been received, pull it from the buffer
-    if (can_is_msg_pending(FDCAN_RX_FIFO0))
+    if (can_is_msg_pending())
     {
         // Storage for status and received message buffer
         FDCAN_RxHeaderTypeDef rx_msg_header;
@@ -412,7 +422,6 @@ void can_process(void)
 
             led_blink_blue();
         }
-        // TOD: check if a message stuck
     }
 
     if (can_bus_state == OFF_BUS)
@@ -422,7 +431,7 @@ void can_process(void)
 }
 
 // Check if a CAN message has been received and is waiting in the FIFO
-uint8_t can_is_msg_pending(uint8_t fifo)
+uint8_t can_is_msg_pending(void)
 {
     if (can_bus_state == OFF_BUS)
     {
@@ -430,6 +439,17 @@ uint8_t can_is_msg_pending(uint8_t fifo)
     }
 
     return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) > 0);
+}
+
+// Check if multiple CAN messages stack in the FIFO
+uint8_t can_is_msg_stack(void)
+{
+    if (can_bus_state == OFF_BUS)
+    {
+        return 0;
+    }
+
+    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 2);
 }
 
 // Get the data bitrate configuration of the CAN peripheral
