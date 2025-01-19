@@ -315,6 +315,7 @@ HAL_StatusTypeDef can_set_filter_std_code(uint32_t code)
     if (can_bus_state == ON_BUS) return HAL_ERROR;
     if (code > 0x7FF) return HAL_ERROR;
     can_std_filter.FilterID1 = code;
+    return HAL_OK;
 }
 
 // Set filter for standard CAN ID
@@ -323,6 +324,7 @@ HAL_StatusTypeDef can_set_filter_std_mask(uint32_t mask)
     if (can_bus_state == ON_BUS) return HAL_ERROR;
     if (mask > 0x7FF) return HAL_ERROR;
     can_std_filter.FilterID2 = mask;
+    return HAL_OK;
 }
 
 // Set filter for extended CAN ID
@@ -331,6 +333,7 @@ HAL_StatusTypeDef can_set_filter_ext_code(uint32_t code)
     if (can_bus_state == ON_BUS) return HAL_ERROR;
     if (code > 0x1FFFFFFF) return HAL_ERROR;
     can_ext_filter.FilterID1 = code;
+    return HAL_OK;
 }
 
 // Set filter for extended CAN ID
@@ -339,6 +342,7 @@ HAL_StatusTypeDef can_set_filter_ext_mask(uint32_t mask)
     if (can_bus_state == ON_BUS) return HAL_ERROR;
     if (mask > 0x1FFFFFFF) return HAL_ERROR;
     can_std_filter.FilterID2 = mask;
+    return HAL_OK;
 }
 
 // Set CAN peripheral to autoretransmit mode
