@@ -21,7 +21,7 @@ canable.read_until()
 print("port_closed ", canable.port)
 print("")
 
-data_write = b"V\r"
+data_write = b"v\r"
 #data_write = data_write + data_write
 #data_write = data_write + data_write
 

@@ -18,12 +18,13 @@ enum slcan_status_flag
     STS_CAN_TX_FIFO_FULL,     /* Probable message loss. Not mean the buffer is just full. */
 };
 
+#define SLCAN_VERSION   ("VL2K0")
 #define SLCAN_RET_OK    ((uint8_t *)"\x0D")
 #define SLCAN_RET_ERR   ((uint8_t *)"\x07")
 #define SLCAN_RET_LEN   (1)
 
 // Private variables
-char *fw_id = "VL2K0 " GIT_VERSION " " GIT_REMOTE "\r";
+char *fw_id = SLCAN_VERSION " " GIT_VERSION " " GIT_REMOTE "\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_last_timestamp = 0;
 static uint32_t slcan_last_time_ms = 0;
@@ -234,6 +235,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Get version number in standard + CANable style
     case 'V':
+    case 'v':
         slcan_parse_str_version(buf, len);
         return;
     // Get serial number
@@ -745,8 +747,12 @@ void slcan_parse_str_version(uint8_t *buf, uint8_t len)
         return;
     }
 
-    // Report firmware version and remote
-    cdc_transmit((uint8_t *)fw_id, strlen(fw_id));
+    if (buf[0] == 'V')
+        // Report firmware version
+        cdc_transmit((uint8_t *)SLCAN_VERSION, strlen(SLCAN_VERSION));
+    else if (buf[0] == 'v')
+        // Report firmware version and remote
+        cdc_transmit((uint8_t *)fw_id, strlen(fw_id));
     return;
 }
 
