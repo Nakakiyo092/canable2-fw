@@ -437,10 +437,10 @@ class SlcanTestCase(unittest.TestCase):
             self.assertEqual(self.receive(), b"\a")
 
         # check cycle time
-        self.print_on = True
+        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        self.print_on = False       
+        #self.print_on = False       
 
         # check response to Q in CAN normal mode
         self.send(b"O\r")
@@ -455,10 +455,10 @@ class SlcanTestCase(unittest.TestCase):
                 self.assertEqual(self.receive(), b"\a")
 
         # check cycle time
-        self.print_on = True
+        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        self.print_on = False       
+        #self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
