@@ -13,6 +13,16 @@ enum slcan_timestamp_mode
     SLCAN_TIMESTAMP_INVALID,
 };
 
+// Filter mode
+enum slcan_filter_mode
+{
+    // SLCAN_FILTER_DUAL_MODE = 0,     // Not supported
+    // SLCAN_FILTER_SINGLE_MODE,       // Not supported
+    SLCAN_FILTER_SIMPLE_ID_MODE = 2,
+
+    SLCAN_FILTER_INVALID,
+};
+
 // Startup mode
 enum slcan_auto_startup_mode
 {

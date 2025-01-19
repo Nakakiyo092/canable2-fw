@@ -32,7 +32,13 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Z0\r")
         self.receive()
-
+        self.send(b"W2\r")
+        self.receive()
+        self.send(b"MFFFFFFFF\r")
+        self.receive()
+        self.send(b"mFFFFFFFF\r")
+        self.receive()
+        
 
     def tearDown(self):
         # close serial

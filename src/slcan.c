@@ -39,6 +39,9 @@ static void slcan_parse_str_close(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_version(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len);
@@ -244,6 +247,18 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Set timestamp on/off
     case 'Z':
         slcan_parse_str_timestamp(buf, len);
+        return;
+    // Set filter mode
+    case 'W':
+        slcan_parse_str_filter_mode(buf, len);
+        return;
+    // Set filter code
+    case 'M':
+        slcan_parse_str_filter_code(buf, len);
+        return;
+    // Set filter mask
+    case 'm':
+        slcan_parse_str_filter_mask(buf, len);
         return;
     // Set auto startup mode
     case 'Q':
@@ -599,6 +614,120 @@ void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
         return;
     }
     // This command is only active if the CAN channel is closed.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+// Set filter mode
+void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
+{
+    // Set filter mode
+    if (can_get_bus_state() == OFF_BUS)
+    {
+        // Check for valid command
+        if (len != 2 || SLCAN_FILTER_INVALID <= buf[1])
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        // Check if the filter mode is supported
+        if (buf[1] != SLCAN_FILTER_SIMPLE_ID_MODE)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // Command can only be sent if CAN232 is initiated but not open.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+
+// Set filter code
+void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
+{
+    // Set filter code
+    if (can_get_bus_state() == OFF_BUS)
+    {
+        // Check for valid command
+        if (len != 9)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        uint32_t code = 0;
+        for (uint8_t i = 0; i < 8; i++)
+        {
+            code = (code << 4) + buf[1 + i];
+        }
+
+        if (can_set_filter_ext_code(code & 0x1FFFFFFF) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+        if (can_set_filter_std_code(code & 0x7FF) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // This command is only active if the CAN channel is initiated and not opened.
+    else
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+
+// Set filter mask
+void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
+{
+    // Set filter code
+    if (can_get_bus_state() == OFF_BUS)
+    {
+        // Check for valid command
+        if (len != 9)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        uint32_t mask = 0;
+        for (uint8_t i = 0; i < 8; i++)
+        {
+            mask = (mask << 4) + buf[1 + i];
+        }
+
+        if (can_set_filter_ext_mask(mask & 0x1FFFFFFF) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+        if ((mask & 0x1FFFFFFF) > 0x7FF) mask = 0x000;     // Filter is setup for ext id. Stop all std id.
+        if (can_set_filter_std_mask(mask & 0x7FF) != HAL_OK)
+        {
+            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // This command is only active if the CAN channel is initiated and not opened.
     else
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
