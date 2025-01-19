@@ -89,11 +89,11 @@ HAL_StatusTypeDef nvm_update_serial_number(uint16_t num)
 HAL_StatusTypeDef nvm_apply_startup_cfg(void)
 {
     // Check if the memory is written
-    if (NVM_IS_WRITTEN(nvm_stp_config_raw)) return HAL_ERROR;
-    if (NVM_IS_WRITTEN(nvm_stp_nom_bitrate_raw)) return HAL_ERROR;
-    if (NVM_IS_WRITTEN(nvm_stp_data_bitrate_raw)) return HAL_ERROR;
-    if (NVM_IS_WRITTEN(nvm_stp_filter_std_raw)) return HAL_ERROR;
-    if (NVM_IS_WRITTEN(nvm_stp_filter_ext_raw)) return HAL_ERROR;
+    if (!NVM_IS_WRITTEN(nvm_stp_config_raw)) return HAL_ERROR;
+    if (!NVM_IS_WRITTEN(nvm_stp_nom_bitrate_raw)) return HAL_ERROR;
+    if (!NVM_IS_WRITTEN(nvm_stp_data_bitrate_raw)) return HAL_ERROR;
+    if (!NVM_IS_WRITTEN(nvm_stp_filter_std_raw)) return HAL_ERROR;
+    if (!NVM_IS_WRITTEN(nvm_stp_filter_ext_raw)) return HAL_ERROR;
 
     // Read and apply the main configuration
     uint8_t startup_mode = (uint8_t)(nvm_stp_config_raw & 0xFF);
