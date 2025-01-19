@@ -7,12 +7,12 @@ sudo chmod 666 /dev/ttyACM0
 echo ""
 echo ""
 echo "Run slcan test cases"
-python3 test_slcan.py
+python3 test/test_slcan.py
 echo ""
 echo ""
 echo "Run loopback test cases"
-python3 test_loopback.py
+python3 test/test_loopback.py
 echo ""
 echo ""
 echo "Run error test cases"
-python3 test_error.py
+python3 test/test_error.py

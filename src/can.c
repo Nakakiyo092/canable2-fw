@@ -26,7 +26,8 @@ struct can_tx_buf
 
 // Private variables
 static FDCAN_HandleTypeDef can_handle;
-// static FDCAN_FilterTypeDef filter;
+static FDCAN_FilterTypeDef can_std_filter;
+static FDCAN_FilterTypeDef can_ext_filter;
 static enum can_bus_state can_bus_state;
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
 static uint8_t can_autoretransmit = ENABLE;
@@ -64,15 +65,19 @@ void can_init(void)
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     // Initialize default CAN filter configuration
-    /*filter.FilterIdHigh = 0;
-    filter.FilterIdLow = 0;
-    filter.FilterMaskIdHigh = 0;
-    filter.FilterMaskIdLow = 0;
-    filter.FilterFIFOAssignment = CAN_RX_FIFO0;
-    filter.FilterBank = 0;
-    filter.FilterMode = CAN_FILTERMODE_IDMASK;
-    filter.FilterScale = CAN_FILTERSCALE_32BIT;
-    filter.FilterActivation = ENABLE;*/
+    can_std_filter.IdType = FDCAN_STANDARD_ID;
+    can_std_filter.FilterIndex = 0;
+    can_std_filter.FilterType = FDCAN_FILTER_MASK;
+    can_std_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    can_std_filter.FilterID1 = 0x7FF;
+    can_std_filter.FilterID2 = 0x000;
+
+    can_ext_filter.IdType = FDCAN_EXTENDED_ID;
+    can_ext_filter.FilterIndex = 0;
+    can_ext_filter.FilterType = FDCAN_FILTER_MASK;
+    can_ext_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    can_ext_filter.FilterID1 = 0x1FFFFFFF;
+    can_ext_filter.FilterID2 = 0x00000000;
 
     // Reset the queue
     memset(&can_tx_queue, 0, sizeof(can_tx_queue));
@@ -108,26 +113,28 @@ HAL_StatusTypeDef can_enable(void)
         can_handle.Init.DataTimeSeg1 = can_bitrate_data.time_seg1;
         can_handle.Init.DataTimeSeg2 = can_bitrate_data.time_seg2;
 
-        can_handle.Init.StdFiltersNbr = 0;
-        can_handle.Init.ExtFiltersNbr = 0;
+        can_handle.Init.StdFiltersNbr = 1;
+        can_handle.Init.ExtFiltersNbr = 1;
         can_handle.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
-        HAL_FDCAN_Init(&can_handle);
+        if (HAL_FDCAN_Init(&can_handle) != HAL_OK) return HAL_ERROR;
 
         // This is a must for high data bit rates, especially for isolated transceivers
         HAL_FDCAN_ConfigTxDelayCompensation(
             &can_handle,
-            can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1,
+            can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1,   // TODO Max 0x7F
             0);
-        HAL_FDCAN_EnableTxDelayCompensation(&can_handle);
+        HAL_FDCAN_EnableTxDelayCompensation(&can_handle);   // TODO check return
 
-        // HAL_CAN_ConfigFilter(&can_handle, &filter);
+        if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter) != HAL_OK) return HAL_ERROR;
+        if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_filter) != HAL_OK) return HAL_ERROR;
+        HAL_FDCAN_ConfigGlobalFilter(&can_handle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
-        HAL_FDCAN_Start(&can_handle);
+        if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
 
         can_bus_state = ON_BUS;
 
-        // Empty tx buffer
+        // Clear the tx buffer
         can_tx_queue.tail = can_tx_queue.head;
         can_tx_queue.full = 0;
 
@@ -147,7 +154,7 @@ HAL_StatusTypeDef can_disable(void)
         HAL_FDCAN_DeInit(&can_handle);
         can_bus_state = OFF_BUS;
 
-        // Empty tx buffer
+        // Clear the tx buffer
         can_tx_queue.tail = can_tx_queue.head;
         can_tx_queue.full = 0;
 
@@ -301,6 +308,66 @@ HAL_StatusTypeDef can_set_mode(uint32_t mode)
     can_mode = mode;
 
     return HAL_OK;
+}
+
+// Set filter for standard CAN ID
+HAL_StatusTypeDef can_set_filter_std_code(uint32_t code)
+{
+    if (can_bus_state == ON_BUS) return HAL_ERROR;
+    if (code > 0x7FF) return HAL_ERROR;
+    can_std_filter.FilterID1 = code;
+    return HAL_OK;
+}
+
+// Set filter for standard CAN ID
+HAL_StatusTypeDef can_set_filter_std_mask(uint32_t mask)
+{
+    if (can_bus_state == ON_BUS) return HAL_ERROR;
+    if (mask > 0x7FF) return HAL_ERROR;
+    can_std_filter.FilterID2 = mask;
+    return HAL_OK;
+}
+
+// Set filter for extended CAN ID
+HAL_StatusTypeDef can_set_filter_ext_code(uint32_t code)
+{
+    if (can_bus_state == ON_BUS) return HAL_ERROR;
+    if (code > 0x1FFFFFFF) return HAL_ERROR;
+    can_ext_filter.FilterID1 = code;
+    return HAL_OK;
+}
+
+// Set filter for extended CAN ID
+HAL_StatusTypeDef can_set_filter_ext_mask(uint32_t mask)
+{
+    if (can_bus_state == ON_BUS) return HAL_ERROR;
+    if (mask > 0x1FFFFFFF) return HAL_ERROR;
+    can_ext_filter.FilterID2 = mask;
+    return HAL_OK;
+}
+
+// Get filter for standard CAN ID
+uint32_t can_get_filter_std_code(void)
+{
+    return can_std_filter.FilterID1 & 0x7FF;
+}
+
+// Get filter for standard CAN ID
+uint32_t can_get_filter_std_mask(void)
+{
+    return can_std_filter.FilterID2 & 0x7FF;
+}
+
+// Get filter for extended CAN ID
+uint32_t can_get_filter_ext_code(void)
+{
+    return can_ext_filter.FilterID1 & 0x1FFFFFFF;
+}
+
+// Get filter for extended CAN ID
+uint32_t can_get_filter_ext_mask(void)
+{
+    return can_ext_filter.FilterID2 & 0x1FFFFFFF;
 }
 
 // Set CAN peripheral to autoretransmit mode
