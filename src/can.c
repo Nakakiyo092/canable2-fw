@@ -279,10 +279,10 @@ HAL_StatusTypeDef can_set_data_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
         return HAL_ERROR;
     }
 
-    if (!IS_FDCAN_DATA_PRESCALER(bitrate_cfg.Prescaler)) return HAL_ERROR;
-    if (!IS_FDCAN_DATA_TSEG1(bitrate_cfg.TimeSeg1)) return HAL_ERROR;
-    if (!IS_FDCAN_DATA_TSEG2(bitrate_cfg.TimeSeg2)) return HAL_ERROR;
-    if (!IS_FDCAN_DATA_SJW(bitrate_cfg.SJW)) return HAL_ERROR;
+    if (!IS_FDCAN_DATA_PRESCALER(bitrate_cfg.prescaler)) return HAL_ERROR;
+    if (!IS_FDCAN_DATA_TSEG1(bitrate_cfg.time_seg1)) return HAL_ERROR;
+    if (!IS_FDCAN_DATA_TSEG2(bitrate_cfg.time_seg2)) return HAL_ERROR;
+    if (!IS_FDCAN_DATA_SJW(bitrate_cfg.sjw)) return HAL_ERROR;
 
     can_bitrate_data = bitrate_cfg;
 
@@ -298,10 +298,10 @@ HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
         return HAL_ERROR;
     }
 
-    if (!IS_FDCAN_NOMINAL_PRESCALER(bitrate_cfg.Prescaler)) return HAL_ERROR;
-    if (!IS_FDCAN_NOMINAL_TSEG1(bitrate_cfg.TimeSeg1)) return HAL_ERROR;
-    if (!IS_FDCAN_NOMINAL_TSEG2(bitrate_cfg.TimeSeg2)) return HAL_ERROR;
-    if (!IS_FDCAN_NOMINAL_SJW(bitrate_cfg.SJW)) return HAL_ERROR;
+    if (!IS_FDCAN_NOMINAL_PRESCALER(bitrate_cfg.prescaler)) return HAL_ERROR;
+    if (!IS_FDCAN_NOMINAL_TSEG1(bitrate_cfg.time_seg1)) return HAL_ERROR;
+    if (!IS_FDCAN_NOMINAL_TSEG2(bitrate_cfg.time_seg2)) return HAL_ERROR;
+    if (!IS_FDCAN_NOMINAL_SJW(bitrate_cfg.sjw)) return HAL_ERROR;
 
     can_bitrate_nominal = bitrate_cfg;
 
