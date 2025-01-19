@@ -622,7 +622,7 @@ void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
 }
 
 // Set filter mode
-void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len)
+void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len)
 {
     // Set filter mode
     if (can_get_bus_state() == OFF_BUS)
