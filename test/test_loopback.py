@@ -324,7 +324,93 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
         
-        
+
+    def test_filter(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        self.print_on = True
+
+        # check pass all in CAN loopback mode
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+            self.send(cmd + b"7C00\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"7C00\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0000003F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"0000003F0\r")
+            self.send(cmd + b"000007C00\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"000007C00\r")
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+            self.send(cmd + b"1EC801370\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"1EC801370\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check pass 0x03F in CAN loopback mode
+        self.send(b"M0000003F\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"mFFFFF800\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+            self.send(cmd + b"7C00\r")
+            self.assertEqual(self.receive(), b"z\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0000003F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"0000003F0\r")
+            self.send(cmd + b"000007C00\r")
+            self.assertEqual(self.receive(), b"z\r")
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r")
+            self.send(cmd + b"1EC801370\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check pass 0x0137FEC8 in CAN loopback mode
+        self.send(b"M0137FEC8\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"mE0000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r")
+            self.send(cmd + b"7C00\r")
+            self.assertEqual(self.receive(), b"z\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0000003F0\r")
+            self.assertEqual(self.receive(), b"z\r")
+            self.send(cmd + b"000007C00\r")
+            self.assertEqual(self.receive(), b"z\r")
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r")
+            self.send(cmd + b"1EC801370\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"1EC801370\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
     def test_can_rx_buffer(self):
         rx_data_exp = b""
         # check response in CAN loopback mode
