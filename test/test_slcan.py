@@ -208,6 +208,44 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
 
 
+    def test_s_command(self):
+        # check response with CAN port closed
+        self.send(b"s10460908\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"s10460908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"s10460908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # our of range
+        self.send(b"sFFFFFFFF\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # invalid format
+        self.send(b"s1046090\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s104609080\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s0G460908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
     def test_Y_command(self):
         # check response to Y with CAN port closed
         for idx in range(0, 10):
@@ -246,6 +284,44 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"Y\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"Y00\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_y_command(self):
+        # check response with CAN port closed
+        self.send(b"y021E0908\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"y021E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"y021E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # our of range
+        self.send(b"yFFFFFFFF\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # invalid format
+        self.send(b"y021E090\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y021E09080\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y0G1E0908\r")
         self.assertEqual(self.receive(), b"\a")
 
 
