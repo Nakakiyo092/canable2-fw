@@ -14,14 +14,14 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `S4` - Set nominal bitrate to 125k (default)
 - `S5` - Set nominal bitrate to 250k
 - `S6` - Set nominal bitrate to 500k
-- `S7` - Set nominal bitrate to 750k
+- `S7` - Set nominal bitrate to 800k
 - `S8` - Set nominal bitrate to 1M
 - `Y0` - Set data bitrate to 500k
 - `Y1` - Set data bitrate to 1M
 - `Y2` - Set data bitrate to 2M (default)
 - `Y4` - Set data bitrate to 4M
 - `Y5` - Set data bitrate to 5M
-- `Y8` - Set data bitrate to 8M
+- `Y8` - Set data bitrate to 8M (If supported by the CAN tranceiver)
 - `rIIIL` - Transmit remote frame (Standard ID) [ID, length]
 - `RIIIIIIIIL` - Transmit remote frame (Extended ID) [ID, length]
 - `tIIILDD...` - Transmit data frame (Standard ID) [ID, length, data]
