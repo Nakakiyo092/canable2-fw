@@ -128,7 +128,7 @@ class ErrorTestCase(unittest.TestCase):
 
         # send a lot of command without receiving data (depends on PC env.)
         for i in range(0, 400):
-            self.send(b"V\r")
+            self.send(b"v\r")
             time.sleep(0.001)
 
         # recieve all reply
