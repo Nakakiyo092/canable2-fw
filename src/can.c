@@ -70,14 +70,14 @@ void can_init(void)
     can_std_filter.FilterType = FDCAN_FILTER_MASK;
     can_std_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     can_std_filter.FilterID1 = 0x7FF;
-    can_std_filter.FilterID2 = 0x7FF;
+    can_std_filter.FilterID2 = 0x000;
 
     can_ext_filter.IdType = FDCAN_EXTENDED_ID;
     can_ext_filter.FilterIndex = 0;
     can_ext_filter.FilterType = FDCAN_FILTER_MASK;
     can_ext_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     can_ext_filter.FilterID1 = 0x1FFFFFFF;
-    can_ext_filter.FilterID2 = 0x1FFFFFFF;
+    can_ext_filter.FilterID2 = 0x00000000;
 
     // Reset the queue
     memset(&can_tx_queue, 0, sizeof(can_tx_queue));
@@ -113,23 +113,24 @@ HAL_StatusTypeDef can_enable(void)
         can_handle.Init.DataTimeSeg1 = can_bitrate_data.time_seg1;
         can_handle.Init.DataTimeSeg2 = can_bitrate_data.time_seg2;
 
-        can_handle.Init.StdFiltersNbr = 0;
-        can_handle.Init.ExtFiltersNbr = 0;
+        can_handle.Init.StdFiltersNbr = 1;
+        can_handle.Init.ExtFiltersNbr = 1;
         can_handle.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
-        HAL_FDCAN_Init(&can_handle);
+        if (HAL_FDCAN_Init(&can_handle) != HAL_OK) return HAL_ERROR;
 
         // This is a must for high data bit rates, especially for isolated transceivers
         HAL_FDCAN_ConfigTxDelayCompensation(
             &can_handle,
-            can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1,
+            can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1,   // TODO Max 0x7F
             0);
-        HAL_FDCAN_EnableTxDelayCompensation(&can_handle);
+        HAL_FDCAN_EnableTxDelayCompensation(&can_handle);   // TODO check return
 
-        HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter);
-        HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_filter);
+        if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter) != HAL_OK) return HAL_ERROR;
+        if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_filter) != HAL_OK) return HAL_ERROR;
+        HAL_FDCAN_ConfigGlobalFilter(&can_handle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
-        HAL_FDCAN_Start(&can_handle);
+        if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
 
         can_bus_state = ON_BUS;
 
@@ -341,7 +342,7 @@ HAL_StatusTypeDef can_set_filter_ext_mask(uint32_t mask)
 {
     if (can_bus_state == ON_BUS) return HAL_ERROR;
     if (mask > 0x1FFFFFFF) return HAL_ERROR;
-    can_std_filter.FilterID2 = mask;
+    can_ext_filter.FilterID2 = mask;
     return HAL_OK;
 }
 
