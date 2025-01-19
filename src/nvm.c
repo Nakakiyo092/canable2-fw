@@ -13,8 +13,6 @@
 enum nvm_memory_status
 {
     NVM_MEMORY_WRITTEN = 0xA,
-    NVM_MEMORY_INVALID,
-
     NVM_MEMORY_CLEARED = 0xF
 };
 
@@ -72,7 +70,7 @@ HAL_StatusTypeDef nvm_get_serial_number(uint16_t *num)
 HAL_StatusTypeDef nvm_update_serial_number(uint16_t num)
 {
     // Check if the serial number is the same
-    if ((uint64_t)num == nvm_serial_number_raw)
+    if (NVM_WRITE_MEM_STS(num) == nvm_serial_number_raw)
     {
         return HAL_OK;
     }
