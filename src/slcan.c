@@ -38,6 +38,8 @@ static void slcan_parse_str_loop(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_close(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_set_bitrate_and_timing(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_set_data_bitrate_and_timing(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_timestamp(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len);
@@ -228,9 +230,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'S':
         slcan_parse_str_set_bitrate(buf, len);
         return;
+    case 's':
+        slcan_parse_str_set_bitrate_and_timing(buf, len);
+        return;
     // Set data bitrate
     case 'Y':
         slcan_parse_str_set_data_bitrate(buf, len);
+        return;
+    case 'y':
+        slcan_parse_str_set_data_bitrate_and_timing(buf, len);
         return;
     // Get version number in standard + CANable style
     case 'V':
@@ -579,10 +587,33 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
     return;
 }
 
+// Set nominal bitrate and timing
+void slcan_parse_str_set_bitrate_and_timing(uint8_t *buf, uint8_t len)
+{
+    // Check for valid bitrate
+    if (len != 9)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
+    struct can_bitrate_cfg bitrate_cfg;
+    bitrate_cfg.prescaler = (buf[1] << 4) + buf[2];
+    bitrate_cfg.time_seg1 = (buf[3] << 4) + buf[4];
+    bitrate_cfg.time_seg2 = (buf[5] << 4) + buf[6];
+    bitrate_cfg.sjw = (buf[7] << 4) + buf[8];
+    
+    if (can_set_bitrate_cfg(bitrate_cfg) == HAL_OK)
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+    return;
+}
+
 // Set data bitrate
 void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len)
 {
-    // Check for valid bitrate
+    // Check for valid length
     if (len != 2 || CAN_DATA_BITRATE_INVALID <= buf[1])
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
@@ -590,6 +621,29 @@ void slcan_parse_str_set_data_bitrate(uint8_t *buf, uint8_t len)
     }
 
     if (can_set_data_bitrate(buf[1]) == HAL_OK)
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+    return;
+}
+
+// Set data bitrate and timing
+void slcan_parse_str_set_data_bitrate_and_timing(uint8_t *buf, uint8_t len)
+{
+    // Check for valid length
+    if (len != 9)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
+    struct can_bitrate_cfg bitrate_cfg;
+    bitrate_cfg.prescaler = (buf[1] << 4) + buf[2];
+    bitrate_cfg.time_seg1 = (buf[3] << 4) + buf[4];
+    bitrate_cfg.time_seg2 = (buf[5] << 4) + buf[6];
+    bitrate_cfg.sjw = (buf[7] << 4) + buf[8];
+    
+    if (can_set_data_bitrate_cfg(bitrate_cfg) == HAL_OK)
         cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
     else
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);

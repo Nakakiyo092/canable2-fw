@@ -120,11 +120,16 @@ HAL_StatusTypeDef can_enable(void)
         if (HAL_FDCAN_Init(&can_handle) != HAL_OK) return HAL_ERROR;
 
         // This is a must for high data bit rates, especially for isolated transceivers
-        HAL_FDCAN_ConfigTxDelayCompensation(
-            &can_handle,
-            can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1,   // TODO Max 0x7F
-            0);
-        HAL_FDCAN_EnableTxDelayCompensation(&can_handle);   // TODO check return
+        uint32_t offset = can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1;
+        if (offset <= 0x7F)
+        {
+            if (HAL_FDCAN_ConfigTxDelayCompensation(&can_handle, offset, 0) != HAL_OK) return HAL_ERROR;
+            if (HAL_FDCAN_EnableTxDelayCompensation(&can_handle) != HAL_OK) return HAL_ERROR;
+        }
+        else
+        {
+            // TODO what to do?
+        }
 
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter) != HAL_OK) return HAL_ERROR;
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_filter) != HAL_OK) return HAL_ERROR;
