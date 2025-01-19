@@ -346,6 +346,30 @@ HAL_StatusTypeDef can_set_filter_ext_mask(uint32_t mask)
     return HAL_OK;
 }
 
+// Get filter for standard CAN ID
+uint32_t can_get_filter_std_code(void)
+{
+    return can_std_filter.FilterID1 & 0x7FF;
+}
+
+// Get filter for standard CAN ID
+uint32_t can_get_filter_std_mask(void)
+{
+    return can_std_filter.FilterID2 & 0x7FF;
+}
+
+// Get filter for extended CAN ID
+uint32_t can_get_filter_ext_code(void)
+{
+    return can_ext_filter.FilterID1 & 0x1FFFFFFF;
+}
+
+// Get filter for extended CAN ID
+uint32_t can_get_filter_ext_mask(void)
+{
+    return can_ext_filter.FilterID2 & 0x1FFFFFFF;
+}
+
 // Set CAN peripheral to autoretransmit mode
 void can_set_autoretransmit(uint8_t autoretransmit)
 {
