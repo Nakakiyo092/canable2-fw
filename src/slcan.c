@@ -27,6 +27,8 @@ char *fw_id = "VL2K0 " GIT_VERSION " " GIT_REMOTE "\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_last_timestamp = 0;
 static uint32_t slcan_last_time_ms = 0;
+static uint32_t slcan_filter_code = 0xFFFFFFFF;
+static uint32_t slcan_filter_mask = 0xFFFFFFFF;
 
 // Private methods
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
@@ -666,18 +668,29 @@ void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
             return;
         }
 
-        uint32_t code = 0;
+        slcan_filter_code = 0;
         for (uint8_t i = 0; i < 8; i++)
         {
-            code = (code << 4) + buf[1 + i];
+            slcan_filter_code = (slcan_filter_code << 4) + buf[1 + i];
+        }
+        
+        FunctionalState state_std = ENABLE;
+        FunctionalState state_ext = ENABLE;
+        if ((slcan_filter_code >> 31) && !(slcan_filter_mask >> 31))
+        {
+            state_ext = DISABLE;
+        }
+        else if (!(slcan_filter_code >> 31) && !(slcan_filter_mask >> 31))
+        {
+            state_std = DISABLE;
         }
 
-        if (can_set_filter_ext_code(code & 0x1FFFFFFF) != HAL_OK)
+        if (can_set_filter_std(state_std, slcan_filter_code & 0x7FF, slcan_filter_mask & 0x7FF) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
-        if (can_set_filter_std_code(code & 0x7FF) != HAL_OK)
+        if (can_set_filter_ext(state_ext, slcan_filter_code & 0x1FFFFFFF, slcan_filter_mask & 0x1FFFFFFF) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
@@ -707,19 +720,30 @@ void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
             return;
         }
 
-        uint32_t mask = 0;
+        slcan_filter_mask = 0;
         for (uint8_t i = 0; i < 8; i++)
         {
-            mask = (mask << 4) + buf[1 + i];
+            slcan_filter_mask = (slcan_filter_mask << 4) + buf[1 + i];
         }
 
-        if (can_set_filter_ext_mask((~mask) & 0x1FFFFFFF) != HAL_OK)    // SLCAN: 0 -> Enable, STM32: 1 -> Enable
+        FunctionalState state_std = ENABLE;
+        FunctionalState state_ext = ENABLE;
+        if ((slcan_filter_code >> 31) && !(slcan_filter_mask >> 31))
+        {
+            state_ext = DISABLE;
+        }
+        else if (!(slcan_filter_code >> 31) && !(slcan_filter_mask >> 31))
+        {
+            state_std = DISABLE;
+        }
+
+        // Mask definition, SLCAN: 0 -> Enable, STM32: 1 -> Enable
+        if (can_set_filter_std(state_std, slcan_filter_code & 0x7FF, (~slcan_filter_mask) & 0x7FF) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
-        if (((~mask) & 0x1FFFFFFF) > 0x7FF) mask = 0x000;     // Filter is setup for ext id. Stop all std id.
-        if (can_set_filter_std_mask((~mask) & 0x7FF) != HAL_OK)
+        if (can_set_filter_ext(state_ext, slcan_filter_code & 0x1FFFFFFF, (~slcan_filter_mask) & 0x1FFFFFFF) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;

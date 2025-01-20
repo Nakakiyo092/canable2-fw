@@ -126,10 +126,17 @@ HAL_StatusTypeDef nvm_apply_startup_cfg(void)
     can_set_data_bitrate_cfg(bitrate);
 
     // Read and apply filter
-    can_set_filter_std_code(nvm_stp_filter_std_raw & 0x7FF);
-    can_set_filter_std_mask((nvm_stp_filter_std_raw >> 11) & 0x7FF);
-    can_set_filter_ext_code(nvm_stp_filter_std_raw & 0x1FFFFFFF);
-    can_set_filter_ext_mask((nvm_stp_filter_std_raw >> 29) & 0x1FFFFFFF);
+    FunctionalState state;
+    uint32_t code, mask;
+    state = ((nvm_stp_filter_std_raw >> 22) & 0x1);
+    code = (nvm_stp_filter_std_raw & 0x7FF);
+    mask = ((nvm_stp_filter_std_raw >> 11) & 0x7FF);
+    can_set_filter_std(state, code, mask);
+
+    state = ((nvm_stp_filter_ext_raw >> 58) & 0x1);
+    code = (nvm_stp_filter_ext_raw & 0x1FFFFFFF);
+    mask = ((nvm_stp_filter_ext_raw >> 29) & 0x7FF);
+    can_set_filter_ext(state, code, mask);
 
     // Start the CAN peripheral
     if (startup_mode == SLCAN_AUTO_STARTUP_NORMAL)
@@ -199,12 +206,14 @@ HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
     uint64_t filter_std = 0;
     filter_std = (filter_std | (can_get_filter_std_code() & 0x7FF));
     filter_std = (filter_std | ((can_get_filter_std_mask() & 0x7FF) << 11));
+    filter_std = (filter_std | ((uint64_t)(can_is_filter_std_enabled() == ENABLE) << 22));
     filter_std = NVM_WRITE_MEM_STS(filter_std);
 
     // Make raw data for extended filter
     uint64_t filter_ext = 0;
     filter_ext = (filter_ext | (can_get_filter_ext_code() & 0x1FFFFFFF));
     filter_ext = (filter_ext | ((can_get_filter_ext_mask() & 0x1FFFFFFF) << 29));
+    filter_ext = (filter_ext | ((uint64_t)(can_is_filter_ext_enabled() == ENABLE) << 58));
     filter_ext = NVM_WRITE_MEM_STS(filter_ext);
 
     // Check if the configuration is the same
