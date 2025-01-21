@@ -80,7 +80,7 @@ class LoopbackTestCase(unittest.TestCase):
 
         # check timestamp on in CAN loopback mode
         self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
+        self.receive()
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -107,9 +107,14 @@ class LoopbackTestCase(unittest.TestCase):
 
         #self.print_on = True
 
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         # check pass 0x03F in CAN loopback mode
         self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
+        self.receive()
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 

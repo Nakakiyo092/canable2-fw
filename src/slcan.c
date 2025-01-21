@@ -280,7 +280,8 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Debug function
     case '?':
         char dbgstr[64] = {0};
-        snprintf(dbgstr, 64, "?%02X\r", led_get_cycle_max_time());
+        //snprintf(dbgstr, 64, "?%02X\r", led_get_cycle_max_time());
+        snprintf(dbgstr, 64, "?%04X%04X\r", (uint16_t)((can_get_filter_ext_mask() >> 16) & 0xFFFF), (uint16_t)(can_get_filter_ext_mask() & 0xFFFF));
         cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
         led_clear_cycle_max_time();
         return;

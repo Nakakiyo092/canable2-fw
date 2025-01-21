@@ -179,7 +179,7 @@ HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
     startup_cfg = (startup_cfg | mode);
 
     if (0xFF < slcan_get_timestamp_mode()) return HAL_ERROR;
-    startup_cfg = (startup_cfg | (slcan_get_timestamp_mode() << 8));
+    startup_cfg = (startup_cfg | ((uint64_t)slcan_get_timestamp_mode() << 8));
     startup_cfg = NVM_WRITE_MEM_STS(startup_cfg);
 
     // Make raw data for nominal bitrate
@@ -187,9 +187,9 @@ HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
 
     if (0xFF < can_get_bitrate_cfg().prescaler) return HAL_ERROR;
     nom_bitrate = (nom_bitrate | can_get_bitrate_cfg().prescaler);
-    nom_bitrate = (nom_bitrate | (can_get_bitrate_cfg().time_seg1 << 8));
-    nom_bitrate = (nom_bitrate | (can_get_bitrate_cfg().time_seg2 << 16));
-    nom_bitrate = (nom_bitrate | (can_get_bitrate_cfg().sjw << 24));
+    nom_bitrate = (nom_bitrate | ((uint64_t)can_get_bitrate_cfg().time_seg1 << 8));
+    nom_bitrate = (nom_bitrate | ((uint64_t)can_get_bitrate_cfg().time_seg2 << 16));
+    nom_bitrate = (nom_bitrate | ((uint64_t)can_get_bitrate_cfg().sjw << 24));
     nom_bitrate = NVM_WRITE_MEM_STS(nom_bitrate);
 
     // Make raw data for data bitrate
@@ -197,22 +197,22 @@ HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
 
     if (0xFF < can_get_data_bitrate_cfg().prescaler) return HAL_ERROR;
     data_bitrate = (data_bitrate | can_get_data_bitrate_cfg().prescaler);
-    data_bitrate = (data_bitrate | (can_get_data_bitrate_cfg().time_seg1 << 8));
-    data_bitrate = (data_bitrate | (can_get_data_bitrate_cfg().time_seg2 << 16));
-    data_bitrate = (data_bitrate | (can_get_data_bitrate_cfg().sjw << 24));
+    data_bitrate = (data_bitrate | ((uint64_t)can_get_data_bitrate_cfg().time_seg1 << 8));
+    data_bitrate = (data_bitrate | ((uint64_t)can_get_data_bitrate_cfg().time_seg2 << 16));
+    data_bitrate = (data_bitrate | ((uint64_t)can_get_data_bitrate_cfg().sjw << 24));
     data_bitrate = NVM_WRITE_MEM_STS(data_bitrate);
 
     // Make raw data for standard filter
     uint64_t filter_std = 0;
     filter_std = (filter_std | (can_get_filter_std_code() & 0x7FF));
-    filter_std = (filter_std | ((can_get_filter_std_mask() & 0x7FF) << 11));
+    filter_std = (filter_std | (((uint64_t)can_get_filter_std_mask() & 0x7FF) << 11));
     filter_std = (filter_std | ((uint64_t)(can_is_filter_std_enabled() == ENABLE) << 22));
     filter_std = NVM_WRITE_MEM_STS(filter_std);
 
     // Make raw data for extended filter
     uint64_t filter_ext = 0;
     filter_ext = (filter_ext | (can_get_filter_ext_code() & 0x1FFFFFFF));
-    filter_ext = (filter_ext | ((can_get_filter_ext_mask() & 0x1FFFFFFF) << 29));
+    filter_ext = (filter_ext | (((uint64_t)can_get_filter_ext_mask() & 0x1FFFFFFF) << 29));
     filter_ext = (filter_ext | ((uint64_t)(can_is_filter_ext_enabled() == ENABLE) << 58));
     filter_ext = NVM_WRITE_MEM_STS(filter_ext);
 

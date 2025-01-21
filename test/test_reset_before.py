@@ -94,6 +94,11 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"mFFFFF800\r")
         self.assertEqual(self.receive(), b"\r")
 
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
+
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -102,6 +107,11 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
+
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False       
 
 
 if __name__ == "__main__":
