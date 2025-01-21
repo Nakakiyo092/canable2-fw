@@ -16,3 +16,16 @@ echo ""
 echo ""
 echo "Run error test cases"
 python3 test/test_error.py
+echo ""
+echo ""
+echo "Setup before reset"
+python3 test/test_reset_before.py
+echo ""
+echo ""
+echo "Reset the device then press enter..."
+read
+echo ""
+echo ""
+echo "Run test after reset"
+python3 test/test_reset_after.py
+

@@ -325,7 +325,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
         
 
-    def test_filter(self):
+    def test_filter_basic(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
 
@@ -412,6 +412,77 @@ class LoopbackTestCase(unittest.TestCase):
             self.send(cmd + b"1EC801370\r")
             #self.assertEqual(self.receive(), b"Z\r" + cmd + b"1EC801370\r")
             self.receive()
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+        
+
+    def test_filter_every_bits(self):
+        # receive std
+        self.send(b"M80000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"m00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t000\r")
+        self.assertEqual(self.receive(), b"z\r" + b"t000\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T00000000\r")
+        self.assertEqual(self.receive(), b"Z\r")
+        for idx in range(0, 29):
+            self.send(b"t" + (f'{(1 << idx):08X}').encode() + b"\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # receive ext
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"m00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T00000000\r")
+        self.assertEqual(self.receive(), b"Z\r" + b"T00000000\r")
+        for idx in range(0, 29):
+            self.send(b"t" + (f'{(1 << idx):08X}').encode() + b"\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # receive both
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"m80000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t000\r")
+        self.assertEqual(self.receive(), b"z\r" + b"t000\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T00000000\r")
+        self.assertEqual(self.receive(), b"Z\r" + b"T00000000\r")
+        for idx in range(0, 29):
+            self.send(b"t" + (f'{(1 << idx):08X}').encode() + b"\r")
+            self.assertEqual(self.receive(), b"Z\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
