@@ -326,39 +326,73 @@ HAL_StatusTypeDef can_set_mode(uint32_t mode)
 }
 
 // Set filter for standard CAN ID
-HAL_StatusTypeDef can_set_filter_std_code(uint32_t code)
+HAL_StatusTypeDef can_set_filter_std(FunctionalState state, uint32_t code, uint32_t mask)
 {
+    HAL_StatusTypeDef ret = HAL_OK;
+    
     if (can_bus_state == ON_BUS) return HAL_ERROR;
-    if (code > 0x7FF) return HAL_ERROR;
-    can_std_filter.FilterID1 = code;
-    return HAL_OK;
-}
+    if (state == ENABLE)
+        can_std_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    else if (state == DISABLE)
+        can_std_filter.FilterConfig = FDCAN_FILTER_DISABLE;
+    else
+        ret = HAL_ERROR;
 
-// Set filter for standard CAN ID
-HAL_StatusTypeDef can_set_filter_std_mask(uint32_t mask)
-{
-    if (can_bus_state == ON_BUS) return HAL_ERROR;
-    if (mask > 0x7FF) return HAL_ERROR;
-    can_std_filter.FilterID2 = mask;
-    return HAL_OK;
+    if (code > 0x7FF)
+        ret = HAL_ERROR;
+    else
+        can_std_filter.FilterID1 = code;
+
+    if (mask > 0x7FF)
+        ret = HAL_ERROR;
+    else
+        can_std_filter.FilterID2 = mask;
+    
+    return ret;
 }
 
 // Set filter for extended CAN ID
-HAL_StatusTypeDef can_set_filter_ext_code(uint32_t code)
+HAL_StatusTypeDef can_set_filter_ext(FunctionalState state, uint32_t code, uint32_t mask)
 {
+    HAL_StatusTypeDef ret = HAL_OK;
+    
     if (can_bus_state == ON_BUS) return HAL_ERROR;
-    if (code > 0x1FFFFFFF) return HAL_ERROR;
-    can_ext_filter.FilterID1 = code;
-    return HAL_OK;
+    if (state == ENABLE)
+        can_ext_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    else if (state == DISABLE)
+        can_ext_filter.FilterConfig = FDCAN_FILTER_DISABLE;
+    else
+        ret = HAL_ERROR;
+
+    if (code > 0x1FFFFFFF)
+        ret = HAL_ERROR;
+    else
+        can_ext_filter.FilterID1 = code;
+
+    if (mask > 0x1FFFFFFF)
+        ret = HAL_ERROR;
+    else
+        can_ext_filter.FilterID2 = mask;
+    
+    return ret;
 }
 
-// Set filter for extended CAN ID
-HAL_StatusTypeDef can_set_filter_ext_mask(uint32_t mask)
+// Get filter state for standard CAN ID
+FunctionalState can_is_filter_std_enabled(void)
 {
-    if (can_bus_state == ON_BUS) return HAL_ERROR;
-    if (mask > 0x1FFFFFFF) return HAL_ERROR;
-    can_ext_filter.FilterID2 = mask;
-    return HAL_OK;
+    if (can_std_filter.FilterConfig == FDCAN_FILTER_DISABLE)
+        return DISABLE;
+    else
+        return ENABLE;
+}
+
+// Get filter state for extended CAN ID
+FunctionalState can_is_filter_ext_enabled(void)
+{
+    if (can_ext_filter.FilterConfig == FDCAN_FILTER_DISABLE)
+        return DISABLE;
+    else
+        return ENABLE;
 }
 
 // Get filter for standard CAN ID
