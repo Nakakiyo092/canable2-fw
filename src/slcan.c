@@ -742,12 +742,13 @@ void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
             state_std = DISABLE;
         }
 
-        if (can_set_filter_std(state_std, slcan_filter_code & 0x7FF, slcan_filter_mask & 0x7FF) != HAL_OK)
+        // Mask definition, SLCAN: 0 -> Enable, STM32: 1 -> Enable
+        if (can_set_filter_std(state_std, slcan_filter_code & 0x7FF, (~slcan_filter_mask) & 0x7FF) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
-        if (can_set_filter_ext(state_ext, slcan_filter_code & 0x1FFFFFFF, slcan_filter_mask & 0x1FFFFFFF) != HAL_OK)
+        if (can_set_filter_ext(state_ext, slcan_filter_code & 0x1FFFFFFF, (~slcan_filter_mask) & 0x1FFFFFFF) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;

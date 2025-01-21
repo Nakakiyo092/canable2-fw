@@ -23,7 +23,8 @@ python3 test/test_reset_before.py
 echo ""
 echo ""
 echo "Reset the device then press enter..."
-read
+read input
+sudo chmod 666 /dev/ttyACM0
 echo ""
 echo ""
 echo "Run test after reset"

@@ -128,14 +128,14 @@ HAL_StatusTypeDef nvm_apply_startup_cfg(void)
     // Read and apply filter
     FunctionalState state;
     uint32_t code, mask;
-    state = ((nvm_stp_filter_std_raw >> 22) & 0x1);
+    state = ((nvm_stp_filter_std_raw >> 22) & 0x1) ? ENABLE : DISABLE;
     code = (nvm_stp_filter_std_raw & 0x7FF);
     mask = ((nvm_stp_filter_std_raw >> 11) & 0x7FF);
     can_set_filter_std(state, code, mask);
 
-    state = ((nvm_stp_filter_ext_raw >> 58) & 0x1);
+    state = ((nvm_stp_filter_ext_raw >> 58) & 0x1) ? ENABLE : DISABLE;
     code = (nvm_stp_filter_ext_raw & 0x1FFFFFFF);
-    mask = ((nvm_stp_filter_ext_raw >> 29) & 0x7FF);
+    mask = ((nvm_stp_filter_ext_raw >> 29) & 0x1FFFFFFF);
     can_set_filter_ext(state, code, mask);
 
     // Start the CAN peripheral
