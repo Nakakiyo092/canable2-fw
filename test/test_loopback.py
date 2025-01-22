@@ -487,6 +487,29 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
+        # check consistency
+        self.send(b"m80000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r" + b"t0000\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T000000000\r")
+        self.assertEqual(self.receive(), b"Z\r" + b"T000000000\r")
+        for idx in range(0, 29):
+            self.send(b"T" + (f'{(1 << idx):08X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
 
     def test_can_rx_buffer(self):
         rx_data_exp = b""

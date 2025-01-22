@@ -225,6 +225,7 @@ class SlcanTestCase(unittest.TestCase):
     def test_s_command(self):
         # check response with CAN port closed
         self.send(b"s10460908\r")
+        #self.send(b"s010046009008\r")  # extension for future use?
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN normal mode
