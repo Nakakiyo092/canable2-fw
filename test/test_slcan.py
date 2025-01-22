@@ -418,6 +418,7 @@ class SlcanTestCase(unittest.TestCase):
 
 
     def test_f_command(self):
+        #self.print_on = True
         # check response with CAN port closed
         self.send(b"f\r")
         self.assertEqual(self.receive(), b"\a")
@@ -449,23 +450,6 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"f0\r")
         self.assertEqual(self.receive(), b"\a")
 
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-
-    def test_delete_later(self):
-        self.print_on = True
-
-        self.send(b"s1046090A\r")   # this should not be correct
-        self.assertEqual(self.receive(), b"\r")
-
-        # check response in loop back mode
-        self.send(b"=\r")
-        self.assertEqual(self.receive(), b"\r")
-        self.send(b"t0000\r")
-        self.assertEqual(self.receive(), b"z\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00000000\r")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 

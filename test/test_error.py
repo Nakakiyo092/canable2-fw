@@ -34,7 +34,7 @@ class ErrorTestCase(unittest.TestCase):
         self.receive()
         self.send(b"W2\r")
         self.receive()
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
@@ -82,6 +82,34 @@ class ErrorTestCase(unittest.TestCase):
 
 
     def test_error_passive(self):
+        #self.print_on = True
+        # ensure no error counter
+        self.send(b"C\r")
+        self.receive()
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+        #self.print_on = False
+        #for idx in range(0, 200):
+        #    self.send(b"t0000\r")
+        #    self.assertEqual(self.receive(), b"z\rt0000\r")
+        #self.print_on = True
+
+        # check no error
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00000000\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\rt0000\r")
+        time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00000000\r")
+
+        # check error passive
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"F\r")
