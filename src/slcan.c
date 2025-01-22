@@ -255,6 +255,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Read status flags
     case 'F':
+    case 'f':
         slcan_parse_str_status_flags(buf, len);
         return;
     // Set timestamp on/off
@@ -895,9 +896,26 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
         status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
         status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << STS_CAN_RX_FIFO_FULL)) : status;
 
-        char stsstr[64] = {0};
-        snprintf(stsstr, 64, "F%02X\r", status);
-        cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+        if (bug[0] == 'F')
+        {
+            char stsstr[64] = {0};
+            snprintf(stsstr, 64, "F%02X\r", status);
+            cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+        }
+        else if (bug[0] == 'f')
+        {
+            FDCAN_ProtocolStatusTypeDef sts;
+            FDCAN_ErrorCountersTypeDef cnt;
+            HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
+            HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+
+            char stsstr[64] = {0};
+            snprintf(stsstr, 64, "f%02X%02X%02X%02X\r", status,
+                                                        (uint8_t)((sts.BusOff < 1) + sts.ErrorPassive),
+                                                        (uint8_t)(cnt.TxErrorCounter),
+                                                        (uint8_t)((cnt.RxErrorPassive << 7) + cnt.RxErrorCounter));
+            cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+        }
     }
     // This command is only active if the CAN channel is open.
     else

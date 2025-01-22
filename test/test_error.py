@@ -81,34 +81,22 @@ class ErrorTestCase(unittest.TestCase):
         return rx_data
 
 
-    def test_in_all_modes(self):
-        # confirm command is not active in closed mode
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"\a")
-
-        # confirm no error in normal mode
+    def test_error_passive(self):
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        # confirm command is not active in closed mode
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"\a")
-
-        # confirm no error in silent mode
-        self.send(b"L\r")
-        self.assertEqual(self.receive(), b"\r")
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00000000\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00018000\r")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
-
-        # confirm command is not active in closed mode
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"\a")
 
 
     def test_usb_tx_overflow(self):

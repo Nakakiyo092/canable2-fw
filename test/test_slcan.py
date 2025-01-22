@@ -381,6 +381,95 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
 
 
+    def test_F_command(self):
+        # check response with CAN port closed
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"F0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_f_command(self):
+        # check response with CAN port closed
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00000000\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00000000\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"f0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_delete_later(self):
+        self.print_on = True
+
+        self.send(b"s1046090A\r")   # this should not be correct
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in loop back mode
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f00000000\r")
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
     def test_W_command(self):
         # check response with CAN port closed
         for idx in range(0, 10):
