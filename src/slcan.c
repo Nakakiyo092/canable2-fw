@@ -914,7 +914,7 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
             snprintf(stsstr, 64, "f%02X%02X%02X%02X\r", status,
                                                         (uint8_t)((sts.BusOff << 1) + sts.ErrorPassive),
                                                         (uint8_t)(cnt.TxErrorCnt),
-                                                        (uint8_t)((cnt.RxErrorPassive << 7) + cnt.RxErrorCnt));
+                                                        (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
             cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
         }
     }

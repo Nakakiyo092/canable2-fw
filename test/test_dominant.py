@@ -108,7 +108,7 @@ class ShortTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
         self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f000100FF\r")
+        self.assertEqual(self.receive(), b"f00030080\r")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
