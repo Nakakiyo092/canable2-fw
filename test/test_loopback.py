@@ -34,7 +34,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"W2\r")
         self.receive()
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()

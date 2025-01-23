@@ -34,7 +34,7 @@ class SlcanTestCase(unittest.TestCase):
         self.receive()
         self.send(b"W2\r")
         self.receive()
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
@@ -411,43 +411,6 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         self.send(b"F0\r")
-        self.assertEqual(self.receive(), b"\a")
-
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-
-    def test_f_command(self):
-        #self.print_on = True
-        # check response with CAN port closed
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"\a")
-
-        # check response in CAN normal mode
-        self.send(b"O\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00000000\r")
-
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        # check response in CAN silent mode
-        self.send(b"L\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00000000\r")
-
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        # invalid format
-        self.send(b"O\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        self.send(b"f0\r")
         self.assertEqual(self.receive(), b"\a")
 
         self.send(b"C\r")

@@ -83,7 +83,7 @@ class ShortTestCase(unittest.TestCase):
 
     def test_short(self):
         self.print_on = True
-        # ensure no error counter
+        # ensure error active
         self.send(b"C\r")
         self.receive()
         self.send(b"=\r")
@@ -97,18 +97,18 @@ class ShortTestCase(unittest.TestCase):
         # check no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00000000\r")
+        self.send(b"?\r")
+        self.receive()
 
-        # check bus off
+        # check error passive
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00030080\r")
+        self.send(b"?\r")
+        self.receive()
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 

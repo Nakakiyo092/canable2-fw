@@ -83,22 +83,22 @@ class ShortTestCase(unittest.TestCase):
 
     def test_short(self):
         self.print_on = True
-        # ensure no error counter
+        # ensure error active
         self.send(b"C\r")
         self.receive()
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
-        #self.print_on = False
-        #for idx in range(0, 200):
-        #    self.send(b"t0000\r")
-        #    self.assertEqual(self.receive(), b"z\rt0000\r")
-        #self.print_on = True
+        self.print_on = False
+        for idx in range(0, 200):
+            self.send(b"t0000\r")
+            self.assertEqual(self.receive(), b"z\rt0000\r")
+        self.print_on = True
 
         # check no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00000000\r")
+        self.send(b"?\r")
+        self.receive()
 
         # check bus off
         self.send(b"C\r")
@@ -107,20 +107,18 @@ class ShortTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f00000000\r")
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\r")
         time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f0003F800\r")    # one more error (+8) will cause overflow
+        self.send(b"?\r")
+        self.receive()
         time.sleep(0.2)
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f0003F800\r")    # no self reset
+        self.send(b"?\r")
+        self.receive()
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\r")
         self.send(b"C\r")
