@@ -96,6 +96,8 @@ HAL_StatusTypeDef can_enable(void)
 {
     if (can_bus_state == OFF_BUS)
     {
+        HAL_FDCAN_ExitPowerDownMode(&can_handle);
+    
         can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1; // 144Mhz
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
@@ -130,7 +132,8 @@ HAL_StatusTypeDef can_enable(void)
         }
         else
         {
-            // TODO what to do?
+            // TODO: bitrate ~ 1Mbps when offset = 0x7F, compensation would not be must
+            //HAL_FDCAN_DisableTxDelayCompensation(&can_handle);
         }
 
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter) != HAL_OK) return HAL_ERROR;
@@ -159,6 +162,8 @@ HAL_StatusTypeDef can_disable(void)
     {
         HAL_FDCAN_Stop(&can_handle);
         HAL_FDCAN_DeInit(&can_handle);
+        //HAL_FDCAN_MspDeInit(&can_handle);   // maybe clear counter?
+        HAL_FDCAN_EnterPowerDownMode(&can_handle);
         can_bus_state = OFF_BUS;
 
         // Clear the tx buffer
@@ -545,8 +550,8 @@ void can_process(void)
     // Check for bus errors
     FDCAN_ProtocolStatusTypeDef sts;
     FDCAN_ErrorCountersTypeDef cnt;
-    HAL_FDCAN_GetProtocolStatus(can_handle, &sts);
-    HAL_FDCAN_GetErrorCounters(can_handle, &cnt);
+    HAL_FDCAN_GetProtocolStatus(&can_handle, &sts);
+    HAL_FDCAN_GetErrorCounters(&can_handle, &cnt);
 
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
     if (rx_err_cnt > can_rx_err_cnt_prev || cnt.TxErrorCnt > can_tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);

@@ -38,7 +38,7 @@ class ShortTestCase(unittest.TestCase):
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
-        
+
 
     def tearDown(self):
         # close serial
@@ -83,34 +83,16 @@ class ShortTestCase(unittest.TestCase):
 
     def test_short(self):
         self.print_on = True
-        # ensure error active
-        self.send(b"C\r")
-        self.receive()
-        self.send(b"=\r")
-        self.assertEqual(self.receive(), b"\r")
-        self.print_on = False
-        for idx in range(0, 200):
-            self.send(b"t0000\r")
-            self.assertEqual(self.receive(), b"z\rt0000\r")
-        self.print_on = True
-
-        # check no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"?\r")
-        self.receive()
-
-        # check error passive
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
+
+        # check error passive
+        print("NOW!")
+        time.sleep(10)
         self.send(b"?\r")
         self.receive()
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"FA4\r")  # BEI + EPI + EI
 
 
 if __name__ == "__main__":

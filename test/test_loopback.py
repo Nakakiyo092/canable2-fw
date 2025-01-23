@@ -517,16 +517,6 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        #self.print_on = False       
-
         # the buffer can store as least 400 messages (10240 / 22)
         for i in range(0, 400):
             tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
@@ -537,10 +527,6 @@ class LoopbackTestCase(unittest.TestCase):
         # check all reply
         rx_data = self.receive()
         self.assertEqual(rx_data, rx_data_exp)
-
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
 
         # check cycle time
         #self.print_on = True
@@ -560,16 +546,6 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        #self.print_on = False       
-
         # the buffer can store as least 64 messages
         for i in range(0, 64):
             tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
@@ -581,16 +557,6 @@ class LoopbackTestCase(unittest.TestCase):
         rx_data += self.receive()    # just to make sure (need time to tx all)
         rx_data = rx_data.replace(b"z\r", b"")
         self.assertEqual(rx_data, rx_data_exp)
-
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        #self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

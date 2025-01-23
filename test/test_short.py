@@ -39,6 +39,16 @@ class ShortTestCase(unittest.TestCase):
         self.send(b"mFFFFFFFF\r")
         self.receive()
         
+        # ensure no error counter (C-O does not clear the counter)
+        self.send(b"=\r")
+        self.receive()
+        for idx in range(0, 300):
+            self.send(b"t0000\r")
+            #self.receive()  # would take too much time
+            self.canable.read_all()
+        self.send(b"C\r")
+        self.receive()
+        
 
     def tearDown(self):
         # close serial
@@ -83,42 +93,36 @@ class ShortTestCase(unittest.TestCase):
 
     def test_short(self):
         self.print_on = True
-        # ensure error active
-        self.send(b"C\r")
-        self.receive()
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
-        self.print_on = False
-        for idx in range(0, 200):
-            self.send(b"t0000\r")
-            self.assertEqual(self.receive(), b"z\rt0000\r")
-        self.print_on = True
 
         # check no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
         self.send(b"?\r")
         self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
 
         # check bus off
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\r")
-        time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
+        time.sleep(0.1)     # wait for bus off ( > 1ms * 255 / 8)
         self.send(b"?\r")
         self.receive()
-        time.sleep(0.2)
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
+        self.assertEqual(self.receive(), b"FB4\r")  # BEI + EPI + BOI + EI
+        time.sleep(0.1)
         self.send(b"?\r")
         self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F34\r")
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\r")
         self.send(b"C\r")
