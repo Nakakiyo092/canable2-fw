@@ -14,8 +14,8 @@
 // Status flags, value is bit position in the status flags
 enum slcan_status_flag
 {
-    SLCAN_STS_CAN_RX_FIFO_FULL = 0, /* Probable message loss. Not mean the buffer is just full. */
-    SLCAN_STS_CAN_TX_FIFO_FULL,     /* Probable message loss. Not mean the buffer is just full. */
+    SLCAN_STS_CAN_RX_FIFO_FULL = 0, /* Message loss. Not mean the buffer is just full. */
+    SLCAN_STS_CAN_TX_FIFO_FULL,     /* Message loss. Not mean the buffer is just full. */
     SLCAN_STS_ERROR_WARNING,
     SLCAN_STS_DATA_OVERRUN,
     SLCAN_STS_BUS_OFF,
@@ -32,6 +32,8 @@ enum slcan_status_flag
 // Private variables
 char *hw_sw_ver = SLCAN_VERSION "\r";
 char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "\", url=\"" GIT_REMOTE "\"\r";
+char *can_info = "I20A0\r";
+char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_last_timestamp = 0;
 static uint32_t slcan_last_time_ms = 0;
@@ -55,6 +57,7 @@ static void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_version(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_can_info(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len);
@@ -250,10 +253,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case 'y':
         slcan_parse_str_set_data_bitrate_and_timing(buf, len);
         return;
-    // Get version number in standard + CANable style
+    // Get version number in standard + detailed style
     case 'V':
     case 'v':
         slcan_parse_str_version(buf, len);
+        return;
+    // Get CAN controller information
+    case 'I':
+    case 'i':
+        slcan_parse_str_can_info(buf, len);
         return;
     // Get serial number
     case 'N':
@@ -834,7 +842,7 @@ void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
     }
 }
 
-// Get version number in standard + CANable style
+// Get version number in standard + detailed style
 void slcan_parse_str_version(uint8_t *buf, uint8_t len)
 {
     // Check command length
@@ -845,11 +853,26 @@ void slcan_parse_str_version(uint8_t *buf, uint8_t len)
     }
 
     if (buf[0] == 'V')
-        // Report firmware version
         cdc_transmit((uint8_t *)hw_sw_ver, strlen(hw_sw_ver));
     else if (buf[0] == 'v')
-        // Report firmware version and remote
         cdc_transmit((uint8_t *)hw_sw_ver_detail, strlen(hw_sw_ver_detail));
+    return;
+}
+
+// Get can controller information
+void slcan_parse_str_can_info(uint8_t *buf, uint8_t len)
+{
+    // Check command length
+    if (len != 1)
+    {
+        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+
+    if (buf[0] == 'I')
+        cdc_transmit((uint8_t *)can_info, strlen(can_info));
+    else if (buf[0] == 'i')
+        cdc_transmit((uint8_t *)can_info_detail, strlen(can_info_detail));
     return;
 }
 
