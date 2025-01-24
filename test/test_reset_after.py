@@ -107,10 +107,10 @@ class LoopbackTestCase(unittest.TestCase):
 
         #self.print_on = True
 
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False       
+        #self.print_on = True
+        #elf.send(b"?\r")
+        #self.receive()
+        #self.print_on = False       
 
         # check pass 0x03F in CAN loopback mode
         self.send(b"C\r")

@@ -34,11 +34,11 @@ class ErrorTestCase(unittest.TestCase):
         self.receive()
         self.send(b"W2\r")
         self.receive()
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
-        
+
 
     def tearDown(self):
         # close serial
@@ -81,34 +81,42 @@ class ErrorTestCase(unittest.TestCase):
         return rx_data
 
 
-    def test_in_all_modes(self):
-        # confirm command is not active in closed mode
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"\a")
+    def test_error_passive(self):
+        #self.print_on = True
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
 
-        # confirm no error in normal mode
+        # check no error
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\rt0000\r")
+        time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        # check error passive
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"FA4\r")  # BEI & EPI & EI
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
-
-        # confirm command is not active in closed mode
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"\a")
-
-        # confirm no error in silent mode
-        self.send(b"L\r")
-        self.assertEqual(self.receive(), b"\r")
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        # confirm command is not active in closed mode
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"\a")
 
 
     def test_usb_tx_overflow(self):
@@ -117,14 +125,10 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        #self.print_on = False       
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
 
         # send a lot of command without receiving data (depends on PC env.)
         for i in range(0, 400):
@@ -141,18 +145,16 @@ class ErrorTestCase(unittest.TestCase):
         # TODO count reply
 
         # check error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F01\r")
-
-        # check error clear
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        #self.print_on = False       
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F01\r")  # CAN Rx Full
+
+        # check error clear
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
@@ -164,14 +166,10 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        #self.print_on = False       
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
 
         # the buffer can store as least 400 messages (10240 / 24)
         for i in range(0, 400):
@@ -183,14 +181,10 @@ class ErrorTestCase(unittest.TestCase):
         rx_data = self.receive()    # just to make sure
 
         # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        #self.print_on = False       
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
 
         # the buffer can not store 800 messages (depends on PC env.)
         for i in range(0, 800):
@@ -202,18 +196,14 @@ class ErrorTestCase(unittest.TestCase):
         rx_data = self.receive()    # just to make sure
 
         # check error
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F01\r")
+        self.assertEqual(self.receive(), b"F01\r")  # CAN Rx Full
 
         # check error clear
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        #self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
@@ -225,6 +215,8 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # confirm no error
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
@@ -233,9 +225,11 @@ class ErrorTestCase(unittest.TestCase):
             self.send(b"t03F0\r")
             self.assertEqual(self.receive(), b"z\r")
 
-        # confirm no error
+        # confirm no overflow
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
+        self.assertEqual(self.receive(), b"FA4\r")  # BEI & EPI & EI
 
         # the buffer can not store additional 64 messages
         for i in range(0, 64):
@@ -243,8 +237,10 @@ class ErrorTestCase(unittest.TestCase):
             self.receive()
 
         # check error
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F02\r")
+        self.assertEqual(self.receive(), b"F26\r")  # - BEI + CAN Tx Full
 
         # the buffer can not store anymore messages
         for i in range(0, 64):
@@ -252,12 +248,14 @@ class ErrorTestCase(unittest.TestCase):
             self.assertEqual(self.receive(), b"\a")
 
         # check error
+        self.send(b"?\r")
+        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F02\r")
+        self.assertEqual(self.receive(), b"F26\r")
 
         # check error clear
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
+        self.assertEqual(self.receive(), b"F24\r")  # EPI & EI
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

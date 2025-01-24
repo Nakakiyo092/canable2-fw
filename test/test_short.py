@@ -5,8 +5,8 @@ import unittest
 import time
 import serial
 
-
-class LoopbackTestCase(unittest.TestCase):
+# NOTE: This test needs to be done with CAN high and low shorted
+class ShortTestCase(unittest.TestCase):
 
     print_on: bool
     canable: serial
@@ -34,7 +34,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"W2\r")
         self.receive()
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
@@ -81,37 +81,42 @@ class LoopbackTestCase(unittest.TestCase):
         return rx_data
 
 
-    def test_setup(self):
-        # check response to shortest SEND in CAN loopback mode
-        self.send(b"NA123\r")
+    def test_short(self):
+        self.print_on = True
+        self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        self.send(b"Z1\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        self.send(b"M0000003F\r")
-        self.assertEqual(self.receive(), b"\r")
-        self.send(b"mFFFFF800\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        #self.print_on = True
-        #self.send(b"?\r")
-        #self.receive()
-        #self.print_on = False       
-
-        self.send(b"O\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        self.send(b"Q1\r")
-        self.assertEqual(self.receive(), b"\r")
-
+        # check no error
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
-        #self.print_on = True
-        #self.send(b"?\r")
-        #self.receive()
-        #elf.print_on = False       
+        # check bus off
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        time.sleep(0.1)     # wait for bus off ( > 1ms * 255 / 8)
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"FB4\r")  # BEI + EPI + BOI + EI
+        time.sleep(0.1)
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F34\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
 
 if __name__ == "__main__":

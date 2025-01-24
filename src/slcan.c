@@ -14,8 +14,14 @@
 // Status flags, value is bit position in the status flags
 enum slcan_status_flag
 {
-    STS_CAN_RX_FIFO_FULL = 0, /* Probable message loss. Not mean the buffer is just full. */
-    STS_CAN_TX_FIFO_FULL,     /* Probable message loss. Not mean the buffer is just full. */
+    SLCAN_STS_CAN_RX_FIFO_FULL = 0, /* Probable message loss. Not mean the buffer is just full. */
+    SLCAN_STS_CAN_TX_FIFO_FULL,     /* Probable message loss. Not mean the buffer is just full. */
+    SLCAN_STS_ERROR_WARNING,
+    SLCAN_STS_DATA_OVERRUN,
+    SLCAN_STS_BUS_OFF,
+    SLCAN_STS_ERROR_PASSIVE,
+    SLCAN_STS_ARBITRATION_LOST,
+    SLCAN_STS_BUS_ERROR
 };
 
 #define SLCAN_VERSION   "VL2K0"
@@ -280,8 +286,18 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Debug function
     case '?':
         char dbgstr[64] = {0};
-        //snprintf(dbgstr, 64, "?%02X\r", led_get_cycle_max_time());
-        snprintf(dbgstr, 64, "?%04X%04X\r", (uint16_t)((can_get_filter_ext_mask() >> 16) & 0xFFFF), (uint16_t)(can_get_filter_ext_mask() & 0xFFFF));
+
+        FDCAN_ProtocolStatusTypeDef sts;
+        FDCAN_ErrorCountersTypeDef cnt;
+        HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
+        HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+
+        snprintf(dbgstr, 64, "?%02X-%01X-%01X-%02X-%02X\r", led_get_cycle_max_time(),
+                                    (uint8_t)(can_get_handle()->State),
+                                    (uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
+                                    (uint8_t)(cnt.TxErrorCnt),
+                                    (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
+
         cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
         led_clear_cycle_max_time();
         return;
@@ -887,13 +903,17 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
     if (can_get_bus_state() == ON_BUS)
     {
         uint8_t status = 0;
-        enum error_flag err_reg = error_get_register();
+        uint32_t err_reg = error_get_register();
 
-        status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << STS_CAN_RX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << STS_CAN_RX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
+        status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
+        status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << SLCAN_STS_CAN_RX_FIFO_FULL)) : status;
+        status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
+        status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
+        status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
+        status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_BUS_OFF)) : status;
 
         char stsstr[64] = {0};
         snprintf(stsstr, 64, "F%02X\r", status);
