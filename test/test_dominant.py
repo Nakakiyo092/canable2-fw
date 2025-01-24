@@ -83,16 +83,27 @@ class ShortTestCase(unittest.TestCase):
 
     def test_short(self):
         self.print_on = True
-        self.send(b"O\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check no error
+        self.send(b"?\r")
+        self.receive()
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check error passive
-        print("NOW!")
-        time.sleep(10)
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+        time.sleep(0.1)     # wait for bus off ( > 1ms * 255 / 8)
         self.send(b"?\r")
         self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"FA4\r")  # BEI + EPI + EI
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
 
 if __name__ == "__main__":

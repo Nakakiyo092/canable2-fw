@@ -39,16 +39,6 @@ class ShortTestCase(unittest.TestCase):
         self.send(b"mFFFFFFFF\r")
         self.receive()
         
-        # ensure no error counter (C-O does not clear the counter)
-        self.send(b"=\r")
-        self.receive()
-        for idx in range(0, 300):
-            self.send(b"t0000\r")
-            #self.receive()  # would take too much time
-            self.canable.read_all()
-        self.send(b"C\r")
-        self.receive()
-        
 
     def tearDown(self):
         # close serial
@@ -101,10 +91,10 @@ class ShortTestCase(unittest.TestCase):
         self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-
-        # check bus off
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
+
+        # check bus off
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"?\r")

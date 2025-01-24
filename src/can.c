@@ -96,8 +96,10 @@ HAL_StatusTypeDef can_enable(void)
 {
     if (can_bus_state == OFF_BUS)
     {
-        HAL_FDCAN_ExitPowerDownMode(&can_handle);
-    
+        // Reset error counter
+        __HAL_RCC_FDCAN_FORCE_RESET();
+        __HAL_RCC_FDCAN_RELEASE_RESET();
+
         can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1; // 144Mhz
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
@@ -162,8 +164,11 @@ HAL_StatusTypeDef can_disable(void)
     {
         HAL_FDCAN_Stop(&can_handle);
         HAL_FDCAN_DeInit(&can_handle);
-        //HAL_FDCAN_MspDeInit(&can_handle);   // maybe clear counter?
-        HAL_FDCAN_EnterPowerDownMode(&can_handle);
+
+        // Reset error counter
+        __HAL_RCC_FDCAN_FORCE_RESET();
+        __HAL_RCC_FDCAN_RELEASE_RESET();
+
         can_bus_state = OFF_BUS;
 
         // Clear the tx buffer
