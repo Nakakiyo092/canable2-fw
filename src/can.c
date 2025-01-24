@@ -134,8 +134,8 @@ HAL_StatusTypeDef can_enable(void)
         }
         else
         {
-            // TODO: bitrate ~ 1Mbps when offset = 0x7F, compensation would not be must
-            //HAL_FDCAN_DisableTxDelayCompensation(&can_handle);
+            // bitrate ~ 1Mbps when offset = 0x7F, compensation would not be must
+            HAL_FDCAN_DisableTxDelayCompensation(&can_handle);
         }
 
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter) != HAL_OK) return HAL_ERROR;
