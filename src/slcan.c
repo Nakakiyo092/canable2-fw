@@ -30,8 +30,8 @@ enum slcan_status_flag
 #define SLCAN_RET_LEN   (1)
 
 // Private variables
-char *fw_ver = SLCAN_VERSION "\r";
-char *fw_ver_id = SLCAN_VERSION " " GIT_VERSION " " GIT_REMOTE "\r";
+char *hw_sw_ver = SLCAN_VERSION "\r";
+char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "\", url=\"" GIT_REMOTE "\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_last_timestamp = 0;
 static uint32_t slcan_last_time_ms = 0;
@@ -846,10 +846,10 @@ void slcan_parse_str_version(uint8_t *buf, uint8_t len)
 
     if (buf[0] == 'V')
         // Report firmware version
-        cdc_transmit((uint8_t *)fw_ver, strlen(fw_ver));
+        cdc_transmit((uint8_t *)hw_sw_ver, strlen(hw_sw_ver));
     else if (buf[0] == 'v')
         // Report firmware version and remote
-        cdc_transmit((uint8_t *)fw_ver_id, strlen(fw_ver_id));
+        cdc_transmit((uint8_t *)hw_sw_ver_detail, strlen(hw_sw_ver_detail));
     return;
 }
 
