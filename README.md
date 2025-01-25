@@ -16,12 +16,14 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `S6` - Set nominal bitrate to 500k
 - `S7` - Set nominal bitrate to 800k
 - `S8` - Set nominal bitrate to 1M
+- `sDDXXYYZZ` - Set nominal bitrate and bittiming
 - `Y0` - Set data bitrate to 500k
 - `Y1` - Set data bitrate to 1M
 - `Y2` - Set data bitrate to 2M (default)
 - `Y4` - Set data bitrate to 4M
 - `Y5` - Set data bitrate to 5M
 - `Y8` - Set data bitrate to 8M (If supported by the CAN tranceiver)
+- `yDDXXYYZZ` - Set data bitrate and bittiming
 - `rIIIL` - Transmit remote frame (Standard ID) [ID, length]
 - `RIIIIIIIIL` - Transmit remote frame (Extended ID) [ID, length]
 - `tIIILDD...` - Transmit data frame (Standard ID) [ID, length, data]
@@ -31,10 +33,12 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `bIIILDD...` - Transmit CAN FD BRS standard ID [ID, length, data]
 - `BIIIIIIIILDD...` - Transmit CAN FD extended ID [ID, length, data]
 
-- `V` - Returns firmware version and remote path as a string
-- `N` - Returns or sets serial number 
-- `F` - Returns status flags
-- `Z` - Turn on or off time stamp
+- `V` and `v` - Returns firmware version and remote path as a string
+- `N` - Returns and sets serial number 
+- `I` and `i` - Returns CAN controller information
+- `Z` and `z` - Configure reporting mechanism including time stamp and Tx event
+- `M` and `m` - Configure CAN acceptance filter
+- `F` and `f` - Returns status flags and detailed status
 - `Q` - Turn on or off auto-startup feature
 
 Note: CANFD message lengths are as follows (expressed in hexadecimal):
