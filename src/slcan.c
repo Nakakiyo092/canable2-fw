@@ -31,7 +31,7 @@ enum slcan_report_flag
     SLCAN_REPORT_TX,
     //SLCAN_REPORT_ERROR,
     //SLCAN_REPORT_OVRLOAD,
-    SLCAN_REPORT_ESI = 8,
+    SLCAN_REPORT_ESI = 4,
 };
 
 // Filter mode
@@ -226,7 +226,7 @@ int32_t slcan_parse_rx_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, 
     int32_t msg_idx = slcan_parse_frame(buf, frame_header, frame_data);
 
     // Return string length
-    return msg_idx + 1;
+    return msg_idx;
 }
 
 // Parse an incoming Tx event into an outgoing slcan message
@@ -251,6 +251,7 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
     frame_header.DataLength = tx_event->DataLength;
     frame_header.ErrorStateIndicator = tx_event->ErrorStateIndicator;
     frame_header.BitRateSwitch = tx_event->BitRateSwitch;
+    frame_header.FDFormat = tx_event->FDFormat;
     frame_header.RxTimestamp = tx_event->TxTimestamp;
     int32_t msg_idx = slcan_parse_frame(&buf[1], &frame_header, frame_data);
 

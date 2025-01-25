@@ -387,11 +387,37 @@ class LoopbackTestCase(unittest.TestCase):
 
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
-            self.assertEqual(self.receive(), b"z" + cmd + b"03F00\r" + cmd + b"03F00\r")
+            if cmd == b"r" or cmd == b"t":
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"z" + cmd + b"03F0\r" + cmd + b"03F0\r"))
+                if rx_data[0] == b"z"[0]:
+                    self.assertEqual(rx_data, b"z" + cmd + b"03F0\r" + cmd + b"03F0\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"03F0\r" + b"z" + cmd + b"03F0\r")
+            else:
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"z" + cmd + b"03F00\r" + cmd + b"03F00\r"))
+                if rx_data[0] == b"z"[0]:
+                    self.assertEqual(rx_data, b"z" + cmd + b"03F00\r" + cmd + b"03F00\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"03F00\r" + b"z" + cmd + b"03F00\r")
 
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC80\r")
-            self.assertEqual(self.receive(), b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r")
+            if cmd == b"R" or cmd == b"T":
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"Z" + cmd + b"0137FEC80\r" + cmd + b"0137FEC80\r"))
+                if rx_data[0] == b"Z"[0]:
+                    self.assertEqual(rx_data, b"Z" + cmd + b"0137FEC80\r" + cmd + b"0137FEC80\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"0137FEC80\r" + b"Z" + cmd + b"0137FEC80\r")
+            else:
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r"))
+                if rx_data[0] == b"Z"[0]:
+                    self.assertEqual(rx_data, b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"0137FEC800\r" + b"Z" + cmd + b"0137FEC800\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
