@@ -107,12 +107,29 @@ class SlcanTestCase(unittest.TestCase):
 
 
     def test_v_command(self):
-        # check response to V
         self.send(b"v\r")
         rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"V1013\r"))
-        self.assertEqual(rx_data[0], b"V1013\r"[0])
-        self.send(b"V0\r")
+        self.assertGreaterEqual(len(rx_data), len(b"v:\r"))
+        self.assertEqual(rx_data[0], b"v:\r"[0])
+        self.send(b"v0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_I_command(self):
+        self.send(b"I\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"I20A0\r"))
+        self.assertEqual(rx_data[0], b"I20A0\r"[0])
+        self.send(b"I0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_i_command(self):
+        self.send(b"i\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"i:\r"))
+        self.assertEqual(rx_data[0], b"i:\r"[0])
+        self.send(b"i0\r")
         self.assertEqual(self.receive(), b"\a")
 
 
