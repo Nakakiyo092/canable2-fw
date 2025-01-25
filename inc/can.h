@@ -73,4 +73,8 @@ struct can_bitrate_cfg can_get_data_bitrate_cfg(void);
 uint32_t can_get_bit_time_ns(void);
 FDCAN_HandleTypeDef *can_get_handle(void);
 
+// Function for debug
+uint32_t can_get_cycle_max_time_ns(void);
+void can_clear_cycle_max_time(void);
+
 #endif // _CAN_H

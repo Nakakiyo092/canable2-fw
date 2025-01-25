@@ -39,6 +39,8 @@ static uint8_t can_autoretransmit = ENABLE;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
+static uint32_t can_cycle_max_time_ns = 0;
+
 // Private methods
 uint8_t can_is_msg_accepted(void);
 uint8_t can_is_msg_stack(void);
@@ -613,6 +615,20 @@ void can_process(void)
     can_rx_err_cnt_prev = rx_err_cnt;
     can_tx_err_cnt_prev = cnt.TxErrorCnt;
 
+    // Cycle time for debug function
+    static uint16_t last_time_stamp_cnt = 0;
+    uint16_t curr_time_stamp_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
+    uint32_t cycle_time_ns;
+    if (last_time_stamp_cnt <= curr_time_stamp_cnt)
+        cycle_time_ns = ((uint32_t)curr_time_stamp_cnt - last_time_stamp_cnt) * can_get_bit_time_ns();
+    else
+        cycle_time_ns = ((uint32_t)UINT16_MAX - last_time_stamp_cnt + 1 + curr_time_stamp_cnt) * can_get_bit_time_ns();
+
+    if (can_cycle_max_time_ns < cycle_time_ns)
+        can_cycle_max_time_ns = cycle_time_ns;
+    
+    last_time_stamp_cnt = curr_time_stamp_cnt;
+
     if (can_bus_state == OFF_BUS)
     {
         led_turn_green(LED_ON);
@@ -690,4 +706,14 @@ FDCAN_HandleTypeDef *can_get_handle(void)
 enum can_bus_state can_get_bus_state(void)
 {
     return can_bus_state;
+}
+
+uint32_t can_get_cycle_max_time_ns(void)
+{
+    return can_cycle_max_time_ns;
+}
+
+void can_clear_cycle_max_time(void)
+{
+    can_cycle_max_time_ns = 0;
 }
