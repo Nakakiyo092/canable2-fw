@@ -6,6 +6,9 @@
 #include "led.h"
 #include "error.h"
 
+// Duration in ms
+#define LED_BLINK_DURATION    (25)
+
 // Private variables
 static volatile uint32_t led_blue_laston = 0;
 static volatile uint32_t led_green_laston = 0;
@@ -91,7 +94,7 @@ void led_process(void)
 {
 
     // If error occurred in the last LED_ERROR_DURATION, override LEDs with constant on
-    if (error_get_register() != 0 && (uint32_t)(HAL_GetTick() - error_get_last_timestamp()) < LED_ERROR_DURATION)
+    if (error_get_register())
     {
         HAL_GPIO_WritePin(LED_BLUE, LED_ON);
         HAL_GPIO_WritePin(LED_GREEN, LED_ON);
