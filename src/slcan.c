@@ -163,7 +163,7 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
     }
 
     // Add time stamp
-    if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILI)
+    if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
     {
         uint32_t current_time_ms = HAL_GetTick();
         uint32_t time_diff_ms;
