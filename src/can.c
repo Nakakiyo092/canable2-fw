@@ -44,7 +44,7 @@ static uint32_t can_cycle_ave_time_ns = 0;
 
 // Private methods
 uint8_t can_is_msg_accepted(void);
-uint8_t can_is_msg_stack(void);
+uint8_t can_is_driver_fifo_full(void);
 uint8_t can_is_msg_received(void);
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
@@ -566,10 +566,10 @@ void can_process(void)
     }
 
     // Process rx frames
-    // Check if multiple message is stored in buffer.
+    // Check if driver buffer is full.
     // This is unlikely since we loop cycle in less than several microseconds,
-    // which is far less than a transmission time of a CAN frame.
-    if (can_is_msg_stack())
+    // which is less than a transmission time of a CAN frame.
+    if (can_is_driver_fifo_full())
     {
         // An error should be asserted because we do not have an overflow notification from the HAL driver.
         error_assert(ERR_CAN_RXFAIL);
@@ -649,15 +649,15 @@ uint8_t can_is_msg_accepted(void)
     return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) > 0);
 }
 
-// Check if multiple CAN messages stack in the FIFO
-uint8_t can_is_msg_stack(void)
+// Check if CAN FIFO buffer is full
+uint8_t can_is_driver_fifo_full(void)
 {
     if (can_bus_state == OFF_BUS)
     {
         return 0;
     }
 
-    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 2);
+    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 3);
 }
 
 // Check if a CAN message has been received and is waiting in the FIFO
