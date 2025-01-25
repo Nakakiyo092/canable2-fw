@@ -407,7 +407,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%01X-%02X-%02X\r",
                                     (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                     (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
-                                    (uint8_t)(HAL_FDCAN_GetStatus(can_get_handle())),
+                                    (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                     (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
                                     (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                     (uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
@@ -1039,7 +1039,7 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
             snprintf(dbgstr, 64, "f: ave_cycle_time_us=0x%02X, max_cycle_time_us=0x%02X\r",
                                         (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                         (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000));
-                                        //(uint8_t)(HAL_FDCAN_GetStatus(can_get_handle())),
+                                        //(uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                         //(uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
