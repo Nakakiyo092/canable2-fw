@@ -628,8 +628,8 @@ class LoopbackTestCase(unittest.TestCase):
 
         # check cycle time
         #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
+        #self.send(b"?\r")
+        #self.receive()
         #self.print_on = False       
 
         self.send(b"C\r")
@@ -654,6 +654,29 @@ class LoopbackTestCase(unittest.TestCase):
         rx_data = self.receive()
         rx_data += self.receive()    # just to make sure (need time to tx all)
         rx_data = rx_data.replace(b"z\r", b"")
+        self.assertEqual(rx_data, rx_data_exp)
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_can_tx_event_buffer(self):
+        rx_data_exp = b""
+        # check response in CAN loopback mode
+        self.send(b"z0002\r")  # no rx, tx event only
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # the buffer can store as least 400 messages (10240 / 22)
+        for i in range(0, 400):
+            tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
+            self.send(tx_data)
+            rx_data_exp += b"z" + tx_data
+            time.sleep(0.001)
+
+        # check all reply
+        rx_data = self.receive()
         self.assertEqual(rx_data, rx_data_exp)
 
         self.send(b"C\r")
