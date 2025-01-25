@@ -28,6 +28,8 @@ struct can_tx_buf
 static FDCAN_HandleTypeDef can_handle;
 static FDCAN_FilterTypeDef can_std_filter;
 static FDCAN_FilterTypeDef can_ext_filter;
+static FDCAN_FilterTypeDef can_std_pass_all;
+static FDCAN_FilterTypeDef can_ext_pass_all;
 static uint8_t can_rx_err_cnt_prev = 0;
 static uint8_t can_tx_err_cnt_prev = 0;
 static enum can_bus_state can_bus_state;
@@ -37,8 +39,9 @@ static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 // Private methods
-uint8_t can_is_msg_pending(void);
+uint8_t can_is_msg_accepted(void);
 uint8_t can_is_msg_stack(void);
+uint8_t can_is_msg_received(void);
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
 void can_init(void)
@@ -81,6 +84,20 @@ void can_init(void)
     can_ext_filter.FilterID1 = 0x1FFFFFFF;
     can_ext_filter.FilterID2 = 0x00000000;
 
+    can_std_pass_all.IdType = FDCAN_STANDARD_ID;
+    can_std_pass_all.FilterIndex = 1;
+    can_std_pass_all.FilterType = FDCAN_FILTER_MASK;
+    can_std_pass_all.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+    can_std_pass_all.FilterID1 = 0x7FF;
+    can_std_pass_all.FilterID2 = 0x000;
+
+    can_ext_pass_all.IdType = FDCAN_EXTENDED_ID;
+    can_ext_pass_all.FilterIndex = 1;
+    can_ext_pass_all.FilterType = FDCAN_FILTER_MASK;
+    can_ext_pass_all.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+    can_ext_pass_all.FilterID1 = 0x1FFFFFFF;
+    can_ext_pass_all.FilterID2 = 0x00000000;
+
     // Reset the queue
     memset(&can_tx_queue, 0, sizeof(can_tx_queue));
 
@@ -119,8 +136,8 @@ HAL_StatusTypeDef can_enable(void)
         can_handle.Init.DataTimeSeg1 = can_bitrate_data.time_seg1;
         can_handle.Init.DataTimeSeg2 = can_bitrate_data.time_seg2;
 
-        can_handle.Init.StdFiltersNbr = 1;
-        can_handle.Init.ExtFiltersNbr = 1;
+        can_handle.Init.StdFiltersNbr = 2;
+        can_handle.Init.ExtFiltersNbr = 2;
         can_handle.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
         if (HAL_FDCAN_Init(&can_handle) != HAL_OK) return HAL_ERROR;
@@ -140,6 +157,8 @@ HAL_StatusTypeDef can_enable(void)
 
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_filter) != HAL_OK) return HAL_ERROR;
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_filter) != HAL_OK) return HAL_ERROR;
+        if (HAL_FDCAN_ConfigFilter(&can_handle, &can_std_pass_all) != HAL_OK) return HAL_ERROR;
+        if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_pass_all) != HAL_OK) return HAL_ERROR;
         HAL_FDCAN_ConfigGlobalFilter(&can_handle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
         if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
@@ -530,7 +549,7 @@ void can_process(void)
     }
 
     // Message has been received, pull it from the buffer
-    if (can_is_msg_pending())
+    if (can_is_msg_accepted())
     {
         // Storage for status and received message buffer
         FDCAN_RxHeaderTypeDef rx_msg_header;
@@ -547,9 +566,12 @@ void can_process(void)
             {
                 cdc_transmit(msg_buf, msg_len);
             }
-
-            led_blink_blue();
         }
+    }
+
+    if (can_is_msg_received())
+    {
+        led_blink_blue();
     }
 
     // Check for bus errors
@@ -573,8 +595,8 @@ void can_process(void)
     }
 }
 
-// Check if a CAN message has been received and is waiting in the FIFO
-uint8_t can_is_msg_pending(void)
+// Check if a CAN message has been accepted and is waiting in the FIFO
+uint8_t can_is_msg_accepted(void)
 {
     if (can_bus_state == OFF_BUS)
     {
@@ -593,6 +615,25 @@ uint8_t can_is_msg_stack(void)
     }
 
     return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 2);
+}
+
+// Check if a CAN message has been received and is waiting in the FIFO
+// This functon also deletes one message from the FIFO
+uint8_t can_is_msg_received(void)
+{
+    if (can_bus_state == OFF_BUS)
+    {
+        return 0;
+    }
+
+    uint8_t result = (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO1) > 0)
+
+    FDCAN_RxHeaderTypeDef rx_msg_header;
+    uint8_t rx_msg_data[TXQUEUE_DATALEN];
+
+    HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, rx_msg_header, rx_msg_data);
+
+    return result;
 }
 
 // Get the data bitrate configuration of the CAN peripheral
