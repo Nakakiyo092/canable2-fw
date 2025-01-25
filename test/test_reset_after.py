@@ -87,8 +87,12 @@ class LoopbackTestCase(unittest.TestCase):
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
             rx_data = self.receive()
-            self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTTE\r"))
-            self.assertEqual(rx_data[:len(b"z\r" + cmd + b"03F0")], b"z\r" + cmd + b"03F0")
+            if cmd == b"r" or cmd == b"t":
+                self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTT\r"))
+                self.assertEqual(rx_data[:len(b"z\r" + cmd + b"03F0")], b"z\r" + cmd + b"03F0")
+            else:
+                self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTTE\r"))
+                self.assertEqual(rx_data[:len(b"z\r" + cmd + b"03F0")], b"z\r" + cmd + b"03F0")
 
         # Not work due to filter
         #for cmd in cmd_send_ext:
@@ -121,8 +125,12 @@ class LoopbackTestCase(unittest.TestCase):
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
             rx_data = self.receive()
-            self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTTE\r"))
-            self.assertEqual(rx_data[0:-6], b"z\r" + cmd + b"03F0")
+            if cmd == b"r" or cmd == b"t":
+                self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTT\r"))
+                self.assertEqual(rx_data[0:-5], b"z\r" + cmd + b"03F0")
+            else:
+                self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTTE\r"))
+                self.assertEqual(rx_data[0:-6], b"z\r" + cmd + b"03F0")
             self.send(cmd + b"7C00\r")
             self.assertEqual(self.receive(), b"z\r")
             self.send(cmd + b"43F0\r")
@@ -133,8 +141,12 @@ class LoopbackTestCase(unittest.TestCase):
         for cmd in cmd_send_ext:
             self.send(cmd + b"0000003F0\r")
             rx_data = self.receive()
-            self.assertEqual(len(rx_data), len(b"Z\r" + cmd + b"0000003F0TTTTE\r"))
-            self.assertEqual(rx_data[0:-6], b"Z\r" + cmd + b"0000003F0")
+            if cmd == b"R" or cmd == b"T":
+                self.assertEqual(len(rx_data), len(b"Z\r" + cmd + b"0000003F0TTTT\r"))
+                self.assertEqual(rx_data[0:-5], b"Z\r" + cmd + b"0000003F0")
+            else:
+                self.assertEqual(len(rx_data), len(b"Z\r" + cmd + b"0000003F0TTTTE\r"))
+                self.assertEqual(rx_data[0:-6], b"Z\r" + cmd + b"0000003F0")
             self.send(cmd + b"000007C00\r")
             self.assertEqual(self.receive(), b"Z\r")
             self.send(cmd + b"0137FEC80\r")
