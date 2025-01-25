@@ -1028,10 +1028,23 @@ void slcan_set_timestamp_mode(enum slcan_timestamp_mode mode)
     return;
 }
 
+// Set the report setting register
+void slcan_set_report_register(uint16_t reg)
+{
+    slcan_report_reg = reg;
+    return;
+}
+
 // Report the current timestamp mode
 enum slcan_timestamp_mode slcan_get_timestamp_mode(void)
 {
     return slcan_timestamp_mode;
+}
+
+// Report the current report setting register value
+uint16_t slcan_get_report_register(void)
+{
+    return slcan_report_reg;
 }
 
 // Convert a FDCAN_data_length_code to number of bytes in a message
