@@ -567,8 +567,6 @@ void can_process(void)
 
     // Process rx frames
     // Check if driver buffer is full.
-    // This is unlikely since we loop cycle in less than several microseconds,
-    // which is less than a transmission time of a CAN frame.
     if (can_is_driver_fifo_full())
     {
         // An error should be asserted because we do not have an overflow notification from the HAL driver.
@@ -632,10 +630,6 @@ void can_process(void)
     
     last_time_stamp_cnt = curr_time_stamp_cnt;
 
-    if (can_bus_state == OFF_BUS)
-    {
-        led_turn_green(LED_ON);
-    }
 }
 
 // Check if a CAN message has been accepted and is waiting in the FIFO
