@@ -628,7 +628,7 @@ void can_process(void)
     if (can_cycle_max_time_ns < cycle_time_ns)
         can_cycle_max_time_ns = cycle_time_ns;
         
-    can_cycle_ave_time_ns = (can_cycle_ave_time_ns * 99 + cycle_time_ns) / 100;
+    can_cycle_ave_time_ns = (can_cycle_ave_time_ns * 9 + cycle_time_ns) / 10;
     
     last_time_stamp_cnt = curr_time_stamp_cnt;
 
