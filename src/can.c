@@ -626,12 +626,12 @@ uint8_t can_is_msg_received(void)
         return 0;
     }
 
-    uint8_t result = (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO1) > 0)
+    uint8_t result = (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO1) > 0);
 
     FDCAN_RxHeaderTypeDef rx_msg_header;
     uint8_t rx_msg_data[TXQUEUE_DATALEN];
 
-    HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, rx_msg_header, rx_msg_data);
+    HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, &rx_msg_header, rx_msg_data);
 
     return result;
 }
