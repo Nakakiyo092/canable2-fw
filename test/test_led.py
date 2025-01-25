@@ -100,14 +100,16 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         for cmd in cmd_send_std:
-            time.sleep(1)
+            time.sleep(1.1)
             self.send(cmd + b"03F0\r")
             self.assertEqual(self.receive(), b"z\r")
 
         for cmd in cmd_send_ext:
-            time.sleep(1)
+            time.sleep(1.1)
             self.send(cmd + b"0137FEC80\r")
             self.assertEqual(self.receive(), b"Z\r")
+
+        time.sleep(1)
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
@@ -118,7 +120,7 @@ class LoopbackTestCase(unittest.TestCase):
         cmd_send_ext = (b"R", b"T", b"D", b"B")
 
         print("")
-        print("No LED should lit.")
+        #print("No LED should lit.")    # LED on due to bus error
         print("")
 
         # check response to shortest SEND in CAN loopback mode
