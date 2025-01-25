@@ -362,7 +362,7 @@ class SlcanTestCase(unittest.TestCase):
         for idx in range(0, 10):
             cmd = "Z" + str(idx) + "\r"
             self.send(cmd.encode())
-            if idx in range(0, 2):
+            if idx in range(0, 3):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
@@ -403,7 +403,7 @@ class SlcanTestCase(unittest.TestCase):
         for idx in range(0, 10):
             cmd = "z" + str(idx) + "000\r"
             self.send(cmd.encode())
-            if idx in range(0, 2):
+            if idx in range(0, 3):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")

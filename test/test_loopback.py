@@ -329,16 +329,16 @@ class LoopbackTestCase(unittest.TestCase):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
 
-        self.print_on = True
+        #self.print_on = True
 
         # check timestamp off in CAN loopback mode
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
 
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
@@ -406,7 +406,7 @@ class LoopbackTestCase(unittest.TestCase):
         last_timestamp = rx_data[len(b"z\r" + b"t03F0"):len(b"z\r" + b"t03F0") + 8]
         last_time_us = int(last_timestamp.decode(), 16)
 
-        print("time: ", last_time_us)
+        #print("time: ", last_time_us)
 
         sleep_time_us = 30 * 1000 * 1000
         time.sleep(sleep_time_us / 1000.0 / 1000.0)
@@ -419,7 +419,7 @@ class LoopbackTestCase(unittest.TestCase):
         crnt_timestamp = rx_data[len(b"z\r" + b"t03F0"):len(b"z\r" + b"t03F0") + 8]
         crnt_time_us = int(crnt_timestamp.decode(), 16)
 
-        print("time: ", crnt_time_us)
+        #print("time: ", crnt_time_us)
 
         if crnt_time_us > last_time_us:
             diff_time_us = crnt_time_us - last_time_us
@@ -429,10 +429,49 @@ class LoopbackTestCase(unittest.TestCase):
         # Proving 2% accuracy. 600ms should be acceptable for USB latency.
         self.assertLess(abs(sleep_time_us - diff_time_us), 600 * 1000)
 
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_timestamp_same_stamp(self):
+        #self.print_on = True
+
+        # check timestamp on in CAN loopback mode
+        self.send(b"z2003\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
+
+        self.send(b"t03F0\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"zt03F0TTTTTTTT\r" + b"t03F0TTTTTTTT\r"))
+
+        if rx_data[0] == b"z"[0]:
+            tx_timestamp = rx_data[len(b"zt03F0"):len(b"zt03F0") + 8]
+        else:
+            tx_timestamp = rx_data[len(b"t03F0TTTTTTTT\rzt03F0"):len(b"t03F0TTTTTTTT\rzt03F0") + 8]
+
+        if rx_data[0] == b"z"[0]:
+            rx_timestamp = rx_data[len(b"zt03F0TTTTTTTT\rt03F0"):len(b"zt03F0TTTTTTTT\rt03F0") + 8]
+        else:
+            rx_timestamp = rx_data[len(b"t03F0"):len(b"t03F0") + 8]
+
+        self.assertEqual(tx_timestamp, rx_timestamp)
+
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
