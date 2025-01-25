@@ -452,11 +452,6 @@ class LoopbackTestCase(unittest.TestCase):
         #self.receive()
         #self.print_on = False
 
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False
-
         self.send(b"t03F0\r")
         rx_data = self.receive()
         self.assertEqual(len(rx_data), len(b"zt03F0TTTTTTTT\r" + b"t03F0TTTTTTTT\r"))
@@ -818,6 +813,7 @@ class LoopbackTestCase(unittest.TestCase):
 
 
     def test_can_tx_event_buffer(self):
+        #self.print_on = True
         rx_data_exp = b""
         # check response in CAN loopback mode
         self.send(b"z0002\r")  # no rx, tx event only
