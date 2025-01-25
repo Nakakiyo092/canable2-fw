@@ -40,6 +40,7 @@ static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 static uint32_t can_cycle_max_time_ns = 0;
+static uint32_t can_cycle_ave_time_ns = 0;
 
 // Private methods
 uint8_t can_is_msg_accepted(void);
@@ -626,6 +627,8 @@ void can_process(void)
 
     if (can_cycle_max_time_ns < cycle_time_ns)
         can_cycle_max_time_ns = cycle_time_ns;
+        
+    can_cycle_ave_time_ns = (can_cycle_ave_time_ns * 99 + cycle_time_ns) / 100;
     
     last_time_stamp_cnt = curr_time_stamp_cnt;
 
@@ -713,7 +716,13 @@ uint32_t can_get_cycle_max_time_ns(void)
     return can_cycle_max_time_ns;
 }
 
-void can_clear_cycle_max_time(void)
+uint32_t can_get_cycle_ave_time_ns(void)
+{
+    return can_cycle_ave_time_ns;
+}
+
+void can_clear_cycle_time(void)
 {
     can_cycle_max_time_ns = 0;
+    can_cycle_ave_time_ns = 0;
 }

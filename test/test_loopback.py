@@ -447,10 +447,15 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        #self.print_on = True
-        #self.send(b"?\r")
-        #self.receive()
-        #self.print_on = False
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False
+
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False
 
         self.send(b"t03F0\r")
         rx_data = self.receive()
@@ -468,10 +473,10 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.assertEqual(tx_timestamp, rx_timestamp)
 
-        #self.print_on = True
-        #self.send(b"?\r")
-        #self.receive()
-        #self.print_on = False
+        self.print_on = True
+        self.send(b"?\r")
+        self.receive()
+        self.print_on = False
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

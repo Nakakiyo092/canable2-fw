@@ -74,7 +74,8 @@ uint32_t can_get_bit_time_ns(void);
 FDCAN_HandleTypeDef *can_get_handle(void);
 
 // Function for debug
+uint32_t can_get_cycle_ave_time_ns(void);
 uint32_t can_get_cycle_max_time_ns(void);
-void can_clear_cycle_max_time(void);
+void can_clear_cycle_time(void);
 
 #endif // _CAN_H

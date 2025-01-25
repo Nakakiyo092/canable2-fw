@@ -403,8 +403,10 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
         HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-        snprintf(dbgstr, 64, "?%02X-%01X-%01X-%02X-%02X\r", 
-                                    (uint8_t)(can_get_cycle_max_time_ns() / 1000), //led_get_cycle_max_time(),
+        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%01X-%02X-%02X\r", 
+                                    //(uint8_t)(led_get_cycle_max_time()),
+                                    (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
+                                    (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
                                     (uint8_t)(can_get_handle()->State),
                                     (uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
                                     (uint8_t)(cnt.TxErrorCnt),
@@ -412,7 +414,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
         cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
         led_clear_cycle_max_time();
-        can_clear_cycle_max_time();
+        can_clear_cycle_time();
         return;
 
     // Transmit remote frame command
