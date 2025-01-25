@@ -30,11 +30,11 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"Z0\r")
+        self.send(b"z0001\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
@@ -86,7 +86,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"NA123\r")
         self.assertEqual(self.receive(), b"\r")
 
-        self.send(b"Z1\r")
+        self.send(b"z1011\r")
         self.assertEqual(self.receive(), b"\r")
 
         self.send(b"M0000003F\r")

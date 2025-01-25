@@ -30,7 +30,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"Z0\r")
+        self.send(b"z0001\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
@@ -81,9 +81,13 @@ class LoopbackTestCase(unittest.TestCase):
         return rx_data
 
 
-    def test_led(self):
+    def test_led_on(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        print("")
+        print("The both LED should lit 8 times.")
+        print("")
 
         # check response to shortest SEND in CAN loopback mode
         self.send(b"W2\r")
@@ -96,12 +100,42 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         for cmd in cmd_send_std:
+            time.sleep(1.1)
             self.send(cmd + b"03F0\r")
-            self.assertEqual(self.receive(), b"z\r")    # tx and rx led should lit
+            self.assertEqual(self.receive(), b"z\r")
 
         for cmd in cmd_send_ext:
+            time.sleep(1.1)
             self.send(cmd + b"0137FEC80\r")
-            self.assertEqual(self.receive(), b"Z\r")    # tx and rx led should lit
+            self.assertEqual(self.receive(), b"Z\r")
+
+        time.sleep(1)
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_led_off(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        print("")
+        #print("No LED should lit.")    # LED on due to bus error
+        print("")
+
+        # check response to shortest SEND in CAN loopback mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            time.sleep(1)
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r")
+
+        for cmd in cmd_send_ext:
+            time.sleep(1)
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

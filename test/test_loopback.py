@@ -30,7 +30,7 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"Z0\r")
+        self.send(b"z0001\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
@@ -323,7 +323,105 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
-        
+
+
+    def test_tx_off_rx_on(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check tx event on in CAN loopback mode
+        self.send(b"z0001\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_tx_on_rx_off(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check tx event on in CAN loopback mode
+        self.send(b"z0002\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_esi_on(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check tx event on in CAN loopback mode
+        self.send(b"z0013\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            if cmd == b"r" or cmd == b"t":
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"z" + cmd + b"03F0\r" + cmd + b"03F0\r"))
+                if rx_data[0] == b"z"[0]:
+                    self.assertEqual(rx_data, b"z" + cmd + b"03F0\r" + cmd + b"03F0\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"03F0\r" + b"z" + cmd + b"03F0\r")
+            else:
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"z" + cmd + b"03F00\r" + cmd + b"03F00\r"))
+                if rx_data[0] == b"z"[0]:
+                    self.assertEqual(rx_data, b"z" + cmd + b"03F00\r" + cmd + b"03F00\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"03F00\r" + b"z" + cmd + b"03F00\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            if cmd == b"R" or cmd == b"T":
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"Z" + cmd + b"0137FEC80\r" + cmd + b"0137FEC80\r"))
+                if rx_data[0] == b"Z"[0]:
+                    self.assertEqual(rx_data, b"Z" + cmd + b"0137FEC80\r" + cmd + b"0137FEC80\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"0137FEC80\r" + b"Z" + cmd + b"0137FEC80\r")
+            else:
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r"))
+                if rx_data[0] == b"Z"[0]:
+                    self.assertEqual(rx_data, b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"0137FEC800\r" + b"Z" + cmd + b"0137FEC800\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
 
     def test_filter_basic(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")

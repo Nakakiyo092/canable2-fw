@@ -20,6 +20,7 @@ struct can_tx_buf
     uint8_t data[TXQUEUE_LEN][TXQUEUE_DATALEN]; // Data buffer
     FDCAN_TxHeaderTypeDef header[TXQUEUE_LEN];  // Header buffer
     uint16_t head;                              // Head pointer
+    uint16_t send;                              // Send pointer
     uint16_t tail;                              // Tail pointer
     uint8_t full;                               // Set this when we are full, clear when the tail moves one.
 };
@@ -167,6 +168,7 @@ HAL_StatusTypeDef can_enable(void)
 
         // Clear the tx buffer
         can_tx_queue.tail = can_tx_queue.head;
+        can_tx_queue.send = can_tx_queue.head;
         can_tx_queue.full = 0;
 
         led_turn_green(LED_OFF);
@@ -192,6 +194,7 @@ HAL_StatusTypeDef can_disable(void)
 
         // Clear the tx buffer
         can_tx_queue.tail = can_tx_queue.head;
+        can_tx_queue.send = can_tx_queue.head;
         can_tx_queue.full = 0;
 
         led_turn_green(LED_ON);
@@ -520,14 +523,14 @@ HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
-    while ((can_tx_queue.tail != can_tx_queue.head || can_tx_queue.full) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
+    // Process tx frames
+    while ((can_tx_queue.send != can_tx_queue.head || can_tx_queue.full) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
     {
         HAL_StatusTypeDef status;
 
         // Transmit can frame
-        status = HAL_FDCAN_AddMessageToTxFifoQ(&can_handle, &can_tx_queue.header[can_tx_queue.tail], can_tx_queue.data[can_tx_queue.tail]);
-        can_tx_queue.tail = (can_tx_queue.tail + 1) % TXQUEUE_LEN;
-        can_tx_queue.full = 0;
+        status = HAL_FDCAN_AddMessageToTxFifoQ(&can_handle, &can_tx_queue.header[can_tx_queue.send], can_tx_queue.data[can_tx_queue.send]);
+        can_tx_queue.send = (can_tx_queue.send + 1) % TXQUEUE_LEN;
 
         // This drops the packet if it fails (no retry). Failure is unlikely
         // since we check if there is a TX mailbox free.
@@ -535,10 +538,28 @@ void can_process(void)
         {
             error_assert(ERR_CAN_TXFAIL);
         }
+    }
+
+    // Process tx event
+    FDCAN_TxEventFifoTypeDef tx_event;
+    if (HAL_FDCAN_GetTxEvent(&can_handle, &tx_event) == HAL_OK)
+    {
+        uint8_t msg_buf[SLCAN_MTU];
+
+        int32_t msg_len = slcan_parse_tx_event((uint8_t *)&msg_buf, &tx_event, can_tx_queue.data[can_tx_queue.tail]);
+        can_tx_queue.tail = (can_tx_queue.tail + 1) % TXQUEUE_LEN;
+        can_tx_queue.full = 0;
+
+        // Transmit message via USB-CDC
+        if (msg_len > 0)
+        {
+            cdc_transmit(msg_buf, msg_len);
+        }
 
         led_blink_green();
     }
 
+    // Process rx frames
     // Check if multiple message is stored in buffer.
     // This is unlikely since we loop cycle in less than several microseconds,
     // which is far less than a transmission time of a CAN frame.
@@ -559,7 +580,7 @@ void can_process(void)
         // If message received from bus, parse the frame
         if (can_rx(&rx_msg_header, rx_msg_data) == HAL_OK)
         {
-            int32_t msg_len = slcan_parse_frame((uint8_t *)&msg_buf, &rx_msg_header, rx_msg_data);
+            int32_t msg_len = slcan_parse_rx_frame((uint8_t *)&msg_buf, &rx_msg_header, rx_msg_data);
 
             // Transmit message via USB-CDC
             if (msg_len > 0)

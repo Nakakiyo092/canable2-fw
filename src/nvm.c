@@ -111,6 +111,9 @@ HAL_StatusTypeDef nvm_apply_startup_cfg(void)
 
     slcan_set_timestamp_mode(timestamp_mode);
 
+    uint16_t report_reg = (uint16_t)((nvm_stp_config_raw >> 16) & 0xFFFF);
+    slcan_set_report_register(report_reg);
+
     // Read and apply bitrate
     struct can_bitrate_cfg bitrate;
     bitrate.prescaler = (uint16_t)((nvm_stp_nom_bitrate_raw) & 0xFF);
@@ -176,10 +179,11 @@ HAL_StatusTypeDef nvm_update_startup_cfg(uint8_t mode)
     // Make raw data for startup configuration
     uint64_t startup_cfg = 0;
 
-    startup_cfg = (startup_cfg | mode);
+    startup_cfg = (startup_cfg | (uint64_t)mode);
 
     if (0xFF < slcan_get_timestamp_mode()) return HAL_ERROR;
     startup_cfg = (startup_cfg | ((uint64_t)slcan_get_timestamp_mode() << 8));
+    startup_cfg = (startup_cfg | ((uint64_t)slcan_get_report_register() << 16));
     startup_cfg = NVM_WRITE_MEM_STS(startup_cfg);
 
     // Make raw data for nominal bitrate
