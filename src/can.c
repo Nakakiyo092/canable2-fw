@@ -177,6 +177,8 @@ HAL_StatusTypeDef can_enable(void)
         can_tx_queue.send = can_tx_queue.head;
         can_tx_queue.full = 0;
 
+        can_clear_cycle_time();
+
         led_turn_green(LED_OFF);
 
         return HAL_OK;

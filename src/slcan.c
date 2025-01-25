@@ -371,6 +371,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Read status flags
     case 'F':
+    case 'f':
         slcan_parse_str_status_flags(buf, len);
         return;
     // Set report mode
@@ -403,10 +404,12 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
         HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%01X-%02X-%02X\r",
+        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%01X-%02X-%02X\r",
                                     (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                     (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
-                                    (uint8_t)(can_get_handle()->State),
+                                    (uint8_t)(HAL_FDCAN_GetStatus(can_get_handle())),
+                                    (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
+                                    (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                     (uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
                                     (uint8_t)(cnt.TxErrorCnt),
                                     (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
@@ -1005,22 +1008,47 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
     // Return the status flags
     if (can_get_bus_state() == ON_BUS)
     {
-        uint8_t status = 0;
-        uint32_t err_reg = error_get_register();
+        if (buf[0] == 'F')
+        {
+            uint8_t status = 0;
+            uint32_t err_reg = error_get_register();
 
-        status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
-        status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
-        status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << SLCAN_STS_CAN_RX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
-        status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
-        status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
-        status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_BUS_OFF)) : status;
+            status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
+            status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
+            status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
+            status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
+            status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << SLCAN_STS_CAN_RX_FIFO_FULL)) : status;
+            status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
+            status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
+            status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
+            status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_BUS_OFF)) : status;
 
-        char stsstr[64] = {0};
-        snprintf(stsstr, 64, "F%02X\r", status);
-        cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+            char stsstr[64] = {0};
+            snprintf(stsstr, 64, "F%02X\r", status);
+            cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+        }
+        else if (buf[0] == 'f')
+        {
+            char dbgstr[64] = {0};
+
+            //FDCAN_ProtocolStatusTypeDef sts;
+            //FDCAN_ErrorCountersTypeDef cnt;
+            //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
+            //HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+
+            snprintf(dbgstr, 64, "f: ave_cycle_time_us=0x%02X, max_cycle_time_us=0x%02X\r",
+                                        (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
+                                        (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000));
+                                        //(uint8_t)(HAL_FDCAN_GetStatus(can_get_handle())),
+                                        //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
+                                        //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
+                                        //(uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
+                                        //(uint8_t)(cnt.TxErrorCnt),
+                                        //(uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
+
+            cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
+            can_clear_cycle_time();
+        }
     }
     // This command is only active if the CAN channel is open.
     else
