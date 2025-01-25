@@ -162,6 +162,9 @@ HAL_StatusTypeDef can_enable(void)
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_pass_all) != HAL_OK) return HAL_ERROR;
         HAL_FDCAN_ConfigGlobalFilter(&can_handle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
+        HAL_FDCAN_ConfigTimestampCounter(&can_handle, FDCAN_TIMESTAMP_PRESC_1);
+        HAL_FDCAN_EnableTimestampCounter(&can_handle, FDCAN_TIMESTAMP_INTERNAL);
+
         if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
 
         can_bus_state = ON_BUS;
@@ -667,6 +670,14 @@ struct can_bitrate_cfg can_get_data_bitrate_cfg(void)
 struct can_bitrate_cfg can_get_bitrate_cfg(void)
 {
     return can_bitrate_nominal;
+}
+
+// Get the one bit time in nanoseconds
+uint32_t can_get_bit_time_ns(void)
+{
+    uint32_t result = (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2); // Tq in one bit
+    result = (result * can_bitrate_nominal.prescaler * 1000) / 160;     // Clock: 160MHz = (160 / 1000) GHz
+    return result;
 }
 
 // Return reference to CAN handle

@@ -56,8 +56,10 @@ char *can_info = "I20A0\r";
 char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_report_reg = 0;
-static uint16_t slcan_last_timestamp = 0;
+static uint16_t slcan_last_timestamp_ms = 0;
 static uint32_t slcan_last_time_ms = 0;
+static uint32_t slcan_last_timestamp_us = 0;
+static uint64_t slcan_last_time_us = 0;
 static uint32_t slcan_filter_code = 0x00000000;
 static uint32_t slcan_filter_mask = 0xFFFFFFFF;
 
@@ -161,23 +163,60 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
     }
 
     // Add time stamp
-    // TODO using RxTimestamp will create more accurate timestamp
     if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILI)
     {
         uint32_t current_time_ms = HAL_GetTick();
-        uint32_t time_diff;
-        if (slcan_last_time_ms <= current_time_ms)
-            time_diff = current_time_ms - slcan_last_time_ms;
-        else
-            time_diff = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+        uint32_t time_diff_ms;
 
-        slcan_last_timestamp = (slcan_last_timestamp + time_diff % 60000) % 60000;
+        if (slcan_last_time_ms <= current_time_ms)
+            time_diff_ms = current_time_ms - slcan_last_time_ms;
+        else
+            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+
+        slcan_last_timestamp_ms = (uint16_t)(((uint32_t)slcan_last_timestamp_ms + time_diff_ms % 60000) % 60000);
         slcan_last_time_ms = current_time_ms;
 
-        buf[msg_idx++] = ((slcan_last_timestamp >> 12) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp >> 8) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp >> 4) & 0xF);
-        buf[msg_idx++] = (slcan_last_timestamp & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 12) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 8) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 4) & 0xF);
+        buf[msg_idx++] = (slcan_last_timestamp_ms & 0xF);
+    }
+    else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
+    {
+        uint32_t current_time_ms = HAL_GetTick();
+        uint64_t current_time_us = ((uint64_t)frame_header->RxTimestamp * can_get_bit_time_ns()) / 1000;
+        uint32_t time_diff_ms;
+        uint64_t time_diff_us;
+        uint64_t n_comp;
+        uint64_t t_comp_us = (((uint64_t)UINT16_MAX + 1) * can_get_bit_time_ns()) / 1000;
+
+        if (slcan_last_time_ms <= current_time_ms)
+            time_diff_ms = current_time_ms - slcan_last_time_ms;
+        else
+            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+
+        if (slcan_last_time_us <= current_time_us)
+            time_diff_us = current_time_us - slcan_last_time_us;
+        else
+            time_diff_us = t_comp_us - slcan_last_time_us + current_time_us;
+
+        // Compensate overflow of micro second counter
+        n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
+        n_comp = n_comp / t_comp_us;
+        time_diff_us = time_diff_us + n_comp * t_comp_us;
+
+        slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 0x100000000);
+        slcan_last_time_ms = current_time_ms;
+        slcan_last_time_us = current_time_us;
+
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 28) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 24) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 20) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 16) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 12) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 8) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 4) & 0xF);
+        buf[msg_idx++] = (slcan_last_timestamp_us & 0xF);
     }
 
     // Add error state indicator

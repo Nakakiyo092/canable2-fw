@@ -70,6 +70,7 @@ void can_process(void);
 enum can_bus_state can_get_bus_state(void);
 struct can_bitrate_cfg can_get_bitrate_cfg(void);
 struct can_bitrate_cfg can_get_data_bitrate_cfg(void);
+uint32_t can_get_bit_time_ns(void);
 FDCAN_HandleTypeDef *can_get_handle(void);
 
 #endif // _CAN_H
