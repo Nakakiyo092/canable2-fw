@@ -77,7 +77,7 @@ static void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_version(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_can_info(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
-static void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_status(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len);
 static uint32_t __std_dlc_code_to_hal_dlc_code(uint8_t dlc_code);
 static uint8_t __hal_dlc_code_to_std_dlc_code(uint32_t hal_dlc_code);
@@ -372,7 +372,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Read status flags
     case 'F':
     case 'f':
-        slcan_parse_str_status_flags(buf, len);
+        slcan_parse_str_status(buf, len);
         return;
     // Set report mode
     case 'Z':
@@ -996,7 +996,7 @@ void slcan_parse_str_number(uint8_t *buf, uint8_t len)
 }
 
 // Read status flags
-void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
+void slcan_parse_str_status(uint8_t *buf, uint8_t len)
 {
     // Check command length
     if (len != 1)
@@ -1032,19 +1032,19 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
             char dbgstr[64] = {0};
 
             //FDCAN_ProtocolStatusTypeDef sts;
-            //FDCAN_ErrorCountersTypeDef cnt;
+            FDCAN_ErrorCountersTypeDef cnt;
             //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
-            //HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+            HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-            snprintf(dbgstr, 64, "f: ave_cycle_time_us=0x%02X, max_cycle_time_us=0x%02X\r",
+            snprintf(dbgstr, 64, "f: av_ct_us=0x%02X, mx_ct_us=0x%02X, tx_ecnt=0x%02X, rx_ecnt=0x%02X\r",
                                         (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
-                                        (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000));
+                                        (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
+                                        (uint8_t)(cnt.TxErrorCnt),
+                                        (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
                                         //(uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                         //(uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
-                                        //(uint8_t)(cnt.TxErrorCnt),
-                                        //(uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
 
             cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
             can_clear_cycle_time();
