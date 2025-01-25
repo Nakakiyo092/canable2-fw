@@ -529,12 +529,15 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Transmit the message
     if (can_tx(&frame_header, frame_data) == HAL_OK)
     {
-        char repstr[64] = {0};
-        if (frame_header.IdType == FDCAN_EXTENDED_ID)
-            snprintf(repstr, 64, "Z\r");
-        else
-            snprintf(repstr, 64, "z\r");
-        cdc_transmit((uint8_t *)repstr, strlen(repstr));
+        if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
+        {
+            char repstr[64] = {0};
+            if (frame_header.IdType == FDCAN_EXTENDED_ID)
+                snprintf(repstr, 64, "Z\r");
+            else
+                snprintf(repstr, 64, "z\r");
+            cdc_transmit((uint8_t *)repstr, strlen(repstr));
+        }
     }
     else
     {
