@@ -224,10 +224,10 @@ int32_t slcan_parse_rx_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, 
     for (uint8_t j = 0; j < SLCAN_MTU; j++)
         buf[j] = '\0';
 
-    if ((slcan_report_reg >> SLCAN_REPORT_RX) & 1 == 0)
+    if (((slcan_report_reg >> SLCAN_REPORT_RX) & 1) == 0)
         return 0;
 
-    int32_t msg_idx = slcan_parse_frame(buf, frame_header, frame_data)
+    int32_t msg_idx = slcan_parse_frame(buf, frame_header, frame_data);
 
     // Return string length
     return msg_idx + 1;
@@ -240,7 +240,7 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
     for (uint8_t j = 0; j < SLCAN_MTU; j++)
         buf[j] = '\0';
 
-    if ((slcan_report_reg >> SLCAN_REPORT_TX) & 1 == 0)
+    if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
         return 0;
 
     if (tx_event->IdType == FDCAN_STANDARD_ID)
@@ -256,7 +256,7 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
     frame_header.ErrorStateIndicator = tx_event->ErrorStateIndicator;
     frame_header.BitRateSwitch = tx_event->BitRateSwitch;
     frame_header.RxTimestamp = tx_event->TxTimestamp;
-    int32_t msg_idx = slcan_parse_frame(&buf[1], &frame_header, frame_data)
+    int32_t msg_idx = slcan_parse_frame(&buf[1], &frame_header, frame_data);
 
     // Return string length
     return msg_idx + 1;
