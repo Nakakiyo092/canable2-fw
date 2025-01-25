@@ -30,7 +30,7 @@ class ErrorTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"Z0\r")
+        self.send(b"z0001\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
@@ -38,7 +38,6 @@ class ErrorTestCase(unittest.TestCase):
         self.receive()
         self.send(b"mFFFFFFFF\r")
         self.receive()
-
 
     def tearDown(self):
         # close serial

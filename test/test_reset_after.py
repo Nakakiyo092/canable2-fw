@@ -87,7 +87,7 @@ class LoopbackTestCase(unittest.TestCase):
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
             rx_data = self.receive()
-            self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTT\r"))
+            self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTTE\r"))
             self.assertEqual(rx_data[:len(b"z\r" + cmd + b"03F0")], b"z\r" + cmd + b"03F0")
 
         # Not work due to filter
@@ -99,7 +99,7 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
-        
+
 
     def test_filter(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")

@@ -73,14 +73,14 @@ class SlcanTestCase(unittest.TestCase):
         self.print_on = True
 
         # Timestamp
-        self.send(b"Z0\r")
+        self.send(b"z1013\r")
         self.assertEqual(self.receive(), b"\r")
 
         # Filter
         self.send(b"W2\r")
         self.assertEqual(self.receive(), b"\r")
 
-        self.send(b"MFFFFFFFF\r")
+        self.send(b"M00000000\r")
         self.assertEqual(self.receive(), b"\r")
 
         self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
