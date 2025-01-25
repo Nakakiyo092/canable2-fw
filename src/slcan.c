@@ -56,8 +56,10 @@ char *can_info = "I20A0\r";
 char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_report_reg = 0;
-static uint16_t slcan_last_timestamp = 0;
+static uint16_t slcan_last_timestamp_ms = 0;
 static uint32_t slcan_last_time_ms = 0;
+static uint32_t slcan_last_timestamp_us = 0;
+static uint64_t slcan_last_time_us = 0;
 static uint32_t slcan_filter_code = 0x00000000;
 static uint32_t slcan_filter_mask = 0xFFFFFFFF;
 
@@ -161,23 +163,60 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
     }
 
     // Add time stamp
-    // TODO using RxTimestamp will create more accurate timestamp
-    if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILI)
+    if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
     {
         uint32_t current_time_ms = HAL_GetTick();
-        uint32_t time_diff;
-        if (slcan_last_time_ms <= current_time_ms)
-            time_diff = current_time_ms - slcan_last_time_ms;
-        else
-            time_diff = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+        uint32_t time_diff_ms;
 
-        slcan_last_timestamp = (slcan_last_timestamp + time_diff % 60000) % 60000;
+        if (slcan_last_time_ms <= current_time_ms)
+            time_diff_ms = current_time_ms - slcan_last_time_ms;
+        else
+            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+
+        slcan_last_timestamp_ms = (uint16_t)(((uint32_t)slcan_last_timestamp_ms + time_diff_ms % 60000) % 60000);
         slcan_last_time_ms = current_time_ms;
 
-        buf[msg_idx++] = ((slcan_last_timestamp >> 12) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp >> 8) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp >> 4) & 0xF);
-        buf[msg_idx++] = (slcan_last_timestamp & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 12) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 8) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 4) & 0xF);
+        buf[msg_idx++] = (slcan_last_timestamp_ms & 0xF);
+    }
+    else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
+    {
+        uint32_t current_time_ms = HAL_GetTick();
+        uint64_t current_time_us = ((uint64_t)frame_header->RxTimestamp * can_get_bit_time_ns()) / 1000;
+        uint32_t time_diff_ms;
+        uint64_t time_diff_us;
+        uint64_t n_comp;
+        uint64_t t_comp_us = (((uint64_t)UINT16_MAX + 1) * can_get_bit_time_ns()) / 1000;
+
+        if (slcan_last_time_ms <= current_time_ms)
+            time_diff_ms = current_time_ms - slcan_last_time_ms;
+        else
+            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+
+        if (slcan_last_time_us <= current_time_us)
+            time_diff_us = current_time_us - slcan_last_time_us;
+        else
+            time_diff_us = t_comp_us - slcan_last_time_us + current_time_us;
+
+        // Compensate overflow of micro second counter
+        n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
+        n_comp = n_comp / t_comp_us;
+        time_diff_us = time_diff_us + n_comp * t_comp_us;
+
+        slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 0x100000000);
+        slcan_last_time_ms = current_time_ms;
+        slcan_last_time_us = current_time_us;
+
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 28) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 24) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 20) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 16) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 12) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 8) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 4) & 0xF);
+        buf[msg_idx++] = (slcan_last_timestamp_us & 0xF);
     }
 
     // Add error state indicator
@@ -332,6 +371,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Read status flags
     case 'F':
+    case 'f':
         slcan_parse_str_status_flags(buf, len);
         return;
     // Set report mode
@@ -364,14 +404,18 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
         HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-        snprintf(dbgstr, 64, "?%02X-%01X-%01X-%02X-%02X\r", led_get_cycle_max_time(),
-                                    (uint8_t)(can_get_handle()->State),
+        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%01X-%02X-%02X\r",
+                                    (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
+                                    (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
+                                    (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
+                                    (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
+                                    (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                     (uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
                                     (uint8_t)(cnt.TxErrorCnt),
                                     (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
 
         cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
-        led_clear_cycle_max_time();
+        can_clear_cycle_time();
         return;
 
     // Transmit remote frame command
@@ -964,22 +1008,47 @@ void slcan_parse_str_status_flags(uint8_t *buf, uint8_t len)
     // Return the status flags
     if (can_get_bus_state() == ON_BUS)
     {
-        uint8_t status = 0;
-        uint32_t err_reg = error_get_register();
+        if (buf[0] == 'F')
+        {
+            uint8_t status = 0;
+            uint32_t err_reg = error_get_register();
 
-        status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
-        status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
-        status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << SLCAN_STS_CAN_RX_FIFO_FULL)) : status;
-        status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
-        status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
-        status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
-        status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_BUS_OFF)) : status;
+            status = ((err_reg >> ERR_CAN_RXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
+            status = ((err_reg >> ERR_CAN_TXFAIL) & 1) ? (status | (1 << SLCAN_STS_DATA_OVERRUN)) : status;
+            status = ((err_reg >> ERR_FULLBUF_CANTX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
+            status = ((err_reg >> ERR_FULLBUF_USBRX) & 1) ? (status | (1 << SLCAN_STS_CAN_TX_FIFO_FULL)) : status;
+            status = ((err_reg >> ERR_FULLBUF_USBTX) & 1) ? (status | (1 << SLCAN_STS_CAN_RX_FIFO_FULL)) : status;
+            status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
+            status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
+            status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
+            status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_BUS_OFF)) : status;
 
-        char stsstr[64] = {0};
-        snprintf(stsstr, 64, "F%02X\r", status);
-        cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+            char stsstr[64] = {0};
+            snprintf(stsstr, 64, "F%02X\r", status);
+            cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+        }
+        else if (buf[0] == 'f')
+        {
+            char dbgstr[64] = {0};
+
+            //FDCAN_ProtocolStatusTypeDef sts;
+            //FDCAN_ErrorCountersTypeDef cnt;
+            //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
+            //HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+
+            snprintf(dbgstr, 64, "f: ave_cycle_time_us=0x%02X, max_cycle_time_us=0x%02X\r",
+                                        (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
+                                        (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000));
+                                        //(uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
+                                        //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
+                                        //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
+                                        //(uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
+                                        //(uint8_t)(cnt.TxErrorCnt),
+                                        //(uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
+
+            cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
+            can_clear_cycle_time();
+        }
     }
     // This command is only active if the CAN channel is open.
     else

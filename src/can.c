@@ -39,9 +39,12 @@ static uint8_t can_autoretransmit = ENABLE;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
+static uint32_t can_cycle_max_time_ns = 0;
+static uint32_t can_cycle_ave_time_ns = 0;
+
 // Private methods
 uint8_t can_is_msg_accepted(void);
-uint8_t can_is_msg_stack(void);
+uint8_t can_is_driver_fifo_full(void);
 uint8_t can_is_msg_received(void);
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
@@ -162,6 +165,9 @@ HAL_StatusTypeDef can_enable(void)
         if (HAL_FDCAN_ConfigFilter(&can_handle, &can_ext_pass_all) != HAL_OK) return HAL_ERROR;
         HAL_FDCAN_ConfigGlobalFilter(&can_handle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
+        HAL_FDCAN_ConfigTimestampCounter(&can_handle, FDCAN_TIMESTAMP_PRESC_1);
+        HAL_FDCAN_EnableTimestampCounter(&can_handle, FDCAN_TIMESTAMP_INTERNAL);
+
         if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
 
         can_bus_state = ON_BUS;
@@ -170,6 +176,8 @@ HAL_StatusTypeDef can_enable(void)
         can_tx_queue.tail = can_tx_queue.head;
         can_tx_queue.send = can_tx_queue.head;
         can_tx_queue.full = 0;
+
+        can_clear_cycle_time();
 
         led_turn_green(LED_OFF);
 
@@ -560,10 +568,8 @@ void can_process(void)
     }
 
     // Process rx frames
-    // Check if multiple message is stored in buffer.
-    // This is unlikely since we loop cycle in less than several microseconds,
-    // which is far less than a transmission time of a CAN frame.
-    if (can_is_msg_stack())
+    // Check if driver buffer is full.
+    if (can_is_driver_fifo_full())
     {
         // An error should be asserted because we do not have an overflow notification from the HAL driver.
         error_assert(ERR_CAN_RXFAIL);
@@ -610,10 +616,22 @@ void can_process(void)
     can_rx_err_cnt_prev = rx_err_cnt;
     can_tx_err_cnt_prev = cnt.TxErrorCnt;
 
-    if (can_bus_state == OFF_BUS)
-    {
-        led_turn_green(LED_ON);
-    }
+    // Cycle time for debug function
+    static uint16_t last_time_stamp_cnt = 0;
+    uint16_t curr_time_stamp_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
+    uint32_t cycle_time_ns;
+    if (last_time_stamp_cnt <= curr_time_stamp_cnt)
+        cycle_time_ns = ((uint32_t)curr_time_stamp_cnt - last_time_stamp_cnt) * can_get_bit_time_ns();
+    else
+        cycle_time_ns = ((uint32_t)UINT16_MAX - last_time_stamp_cnt + 1 + curr_time_stamp_cnt) * can_get_bit_time_ns();
+
+    if (can_cycle_max_time_ns < cycle_time_ns)
+        can_cycle_max_time_ns = cycle_time_ns;
+        
+    can_cycle_ave_time_ns = (can_cycle_ave_time_ns * 9 + cycle_time_ns) / 10;
+    
+    last_time_stamp_cnt = curr_time_stamp_cnt;
+
 }
 
 // Check if a CAN message has been accepted and is waiting in the FIFO
@@ -627,15 +645,15 @@ uint8_t can_is_msg_accepted(void)
     return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) > 0);
 }
 
-// Check if multiple CAN messages stack in the FIFO
-uint8_t can_is_msg_stack(void)
+// Check if CAN FIFO buffer is full
+uint8_t can_is_driver_fifo_full(void)
 {
     if (can_bus_state == OFF_BUS)
     {
         return 0;
     }
 
-    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 2);
+    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 3);
 }
 
 // Check if a CAN message has been received and is waiting in the FIFO
@@ -669,6 +687,14 @@ struct can_bitrate_cfg can_get_bitrate_cfg(void)
     return can_bitrate_nominal;
 }
 
+// Get the one bit time in nanoseconds
+uint32_t can_get_bit_time_ns(void)
+{
+    uint32_t result = (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2); // Tq in one bit
+    result = (result * can_bitrate_nominal.prescaler * 1000) / 160;     // Clock: 160MHz = (160 / 1000) GHz
+    return result;
+}
+
 // Return reference to CAN handle
 FDCAN_HandleTypeDef *can_get_handle(void)
 {
@@ -679,4 +705,20 @@ FDCAN_HandleTypeDef *can_get_handle(void)
 enum can_bus_state can_get_bus_state(void)
 {
     return can_bus_state;
+}
+
+uint32_t can_get_cycle_max_time_ns(void)
+{
+    return can_cycle_max_time_ns;
+}
+
+uint32_t can_get_cycle_ave_time_ns(void)
+{
+    return can_cycle_ave_time_ns;
+}
+
+void can_clear_cycle_time(void)
+{
+    can_cycle_max_time_ns = 0;
+    can_cycle_ave_time_ns = 0;
 }

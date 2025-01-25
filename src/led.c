@@ -92,7 +92,6 @@ void led_blink_blue(void)
 // Process time-based LED events
 void led_process(void)
 {
-
     // If error occurred in the last LED_ERROR_DURATION, override LEDs with constant on
     if (error_get_register())
     {
@@ -128,33 +127,4 @@ void led_process(void)
             led_green_lastoff = HAL_GetTick();
         }
     }
-    
-    // TODO: Move to somewhere
-    // Cycle time for debug function
-    static uint32_t last_tick_ms = 0;
-    static uint16_t cnt = 0;
-    uint32_t curr_tick_ms = HAL_GetTick();
-    cnt++;
-    if (cnt >= 10000)
-    {
-        if (led_cycle_max_time_us * 1000 < curr_tick_ms - last_tick_ms)
-        {
-            led_cycle_max_time_us = (curr_tick_ms - last_tick_ms) / 10;     // * 1000 (ms -> us) / 10000 (cycle)
-        }
-        last_tick_ms = curr_tick_ms;
-        cnt = 0;
-    }
-}
-
-uint8_t led_get_cycle_max_time(void)
-{
-    if (0xFF < led_cycle_max_time_us)
-        return 0xFF;
-    else
-        return (uint8_t)led_cycle_max_time_us;
-}
-
-void led_clear_cycle_max_time(void)
-{
-    led_cycle_max_time_us = 0;
 }

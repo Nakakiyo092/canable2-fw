@@ -5,8 +5,8 @@
 enum slcan_timestamp_mode
 {
     SLCAN_TIMESTAMP_OFF = 0,
-    SLCAN_TIMESTAMP_MILI,
-    // SLCAN_TIMESTAMP_MICRO,     // Reserved
+    SLCAN_TIMESTAMP_MILLI,
+    SLCAN_TIMESTAMP_MICRO,
 
     SLCAN_TIMESTAMP_INVALID
 };
@@ -22,8 +22,8 @@ enum slcan_auto_startup_mode
 };
 
 // Maximum rx buffer len
-#define SLCAN_MTU           (1 + 138 + 4 + 1 + 1 + 16) 
-                            /* tx z/Z plus frame 138 plus timestamp 4 plus additional 1 plus \r plus some padding */
+#define SLCAN_MTU           (1 + 138 + 8 + 1 + 1 + 16) 
+                            /* tx z/Z plus frame 138 plus timestamp 8 plus ESI plus \r plus some padding */
 #define SLCAN_STD_ID_LEN    (3)
 #define SLCAN_EXT_ID_LEN    (8)
 
