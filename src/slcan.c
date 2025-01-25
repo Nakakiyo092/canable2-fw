@@ -779,12 +779,13 @@ void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
         else if (buf[0] == 'z')
         {
             // Check for valid command
-            if (len != 5)
+            if (len != 5 || SLCAN_TIMESTAMP_INVALID <= buf[1])
             {
                 cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
 
+            slcan_timestamp_mode = buf[1];
             slcan_report_reg = (buf[3] << 4) + buf[4];
             cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             return;
