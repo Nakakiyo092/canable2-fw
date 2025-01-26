@@ -77,5 +77,6 @@ FDCAN_HandleTypeDef *can_get_handle(void);
 uint32_t can_get_cycle_ave_time_ns(void);
 uint32_t can_get_cycle_max_time_ns(void);
 void can_clear_cycle_time(void);
+uint8_t can_get_bus_load_ppm(void);
 
 #endif // _CAN_H
