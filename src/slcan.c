@@ -55,7 +55,7 @@ char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "
 char *can_info = "I20A0\r";
 char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
-static uint16_t slcan_report_reg = 0;
+static uint16_t slcan_report_reg = 1;   // No timestamp, no ESI, no Tx, but with Rx
 static uint16_t slcan_last_timestamp_ms = 0;
 static uint32_t slcan_last_time_ms = 0;
 static uint32_t slcan_last_timestamp_us = 0;
@@ -203,7 +203,7 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
         // Compensate overflow of micro second counter
         n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
         n_comp = n_comp / t_comp_us;
-        time_diff_us = time_diff_us + n_comp * t_comp_us;
+        time_diff_us = time_diff_us + n_comp * t_comp_us;   // TODO: guard against zero division
 
         slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 0x100000000);
         slcan_last_time_ms = current_time_ms;
