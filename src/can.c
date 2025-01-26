@@ -14,6 +14,14 @@
 #define TXQUEUE_LEN 64     // Number of buffers allocated
 #define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
 
+// Bit number for each frame type with zero data length
+#define CAN_BIT_NBR_WOD_CBFF            48
+#define CAN_BIT_NBR_WOD_CEFF            67
+#define CAN_BIT_NBR_WOD_FBFF_ARBIT      30
+#define CAN_BIT_NBR_WOD_FEFF_ARBIT      49
+#define CAN_BIT_NBR_WOD_FXFF_DATA_S     26
+#define CAN_BIT_NBR_WOD_FXFF_DATA_L     30
+
 // Cirbuf structure for CAN TX frames
 struct can_tx_buf
 {
@@ -41,11 +49,15 @@ static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 static uint32_t can_cycle_max_time_ns = 0;
 static uint32_t can_cycle_ave_time_ns = 0;
+static uint32_t can_bus_load_ppm = 0;
+static uint16_t can_last_frame_time_cnt = 0;
 
 // Private methods
 uint8_t can_is_msg_accepted(void);
 uint8_t can_is_driver_fifo_full(void);
 uint8_t can_is_msg_received(void);
+uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader);
+uint16_t can_get_bit_number_in_tx_event(FDCAN_TxEventFifoTypeDef *pRxHeader);
 
 // Initialize CAN peripheral settings, but don't actually start the peripheral
 void can_init(void)
@@ -178,6 +190,8 @@ HAL_StatusTypeDef can_enable(void)
         can_tx_queue.full = 0;
 
         can_clear_cycle_time();
+        can_bus_load_ppm = 0;
+        can_last_frame_time_cnt = 0;
 
         led_turn_green(LED_OFF);
 
@@ -531,6 +545,8 @@ HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
+    uint8_t msg_cnt;
+
     // Process tx frames
     while ((can_tx_queue.send != can_tx_queue.head || can_tx_queue.full) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
     {
@@ -549,43 +565,66 @@ void can_process(void)
     }
 
     // Process tx event
-    FDCAN_TxEventFifoTypeDef tx_event;
-    if (HAL_FDCAN_GetTxEvent(&can_handle, &tx_event) == HAL_OK)
+    // TODO: Time orderness between tx event and rx frame is not guaranteed
+    for (msg_cnt = 0; msg_cnt < 3; msg_cnt++)   // 3 = SRAMCAN_TXE_NBR
     {
-        uint8_t msg_buf[SLCAN_MTU];
+        // Storage for status and tx event buffer
+        FDCAN_TxEventFifoTypeDef tx_event;
 
-        int32_t msg_len = slcan_parse_tx_event((uint8_t *)&msg_buf, &tx_event, can_tx_queue.data[can_tx_queue.tail]);
-        can_tx_queue.tail = (can_tx_queue.tail + 1) % TXQUEUE_LEN;
-        can_tx_queue.full = 0;
-
-        // Transmit message via USB-CDC
-        if (msg_len > 0)
+        // If message transmitted on bus, parse the frame
+        if (HAL_FDCAN_GetTxEvent(&can_handle, &tx_event) == HAL_OK)
         {
-            cdc_transmit(msg_buf, msg_len);
-        }
+            uint8_t msg_buf[SLCAN_MTU];
+            int32_t msg_len = slcan_parse_tx_event((uint8_t *)&msg_buf, &tx_event, can_tx_queue.data[can_tx_queue.tail]);
 
-        led_blink_green();
+            can_tx_queue.tail = (can_tx_queue.tail + 1) % TXQUEUE_LEN;
+            can_tx_queue.full = 0;
+
+            // Transmit message via USB-CDC
+            if (msg_len > 0)
+            {
+                cdc_transmit(msg_buf, msg_len);
+            }
+
+            if (tx_event.TxTimestamp != can_last_frame_time_cnt)    // Don't count same frame.
+            {
+                uint16_t time_diff, time_msg;
+
+                if (can_last_frame_time_cnt < tx_event.TxTimestamp)
+                    time_diff = tx_event.TxTimestamp - can_last_frame_time_cnt;
+                else
+                    time_diff = UINT16_MAX - can_last_frame_time_cnt + 1 + tx_event.TxTimestamp;
+
+                if (time_diff < UINT16_MAX / 2)     // Don't count if it's rewinded.
+                {
+                    time_msg = can_get_bit_number_in_tx_event(&tx_event);
+                    
+                    can_bus_load_ppm = (can_bus_load_ppm * 99 + ((uint32_t)1000000 * time_msg) / time_diff) / 100;
+                    can_last_frame_time_cnt = tx_event.TxTimestamp;
+                }
+            }
+
+            if (msg_cnt == 2) error_assert(ERR_CAN_TXFAIL);
+            led_blink_green();
+        }
+        else
+        {
+            break;
+        }
     }
 
     // Process rx frames
-    // Check if driver buffer is full.
-    if (can_is_driver_fifo_full())
-    {
-        // An error should be asserted because we do not have an overflow notification from the HAL driver.
-        error_assert(ERR_CAN_RXFAIL);
-    }
-
-    // Message has been received, pull it from the buffer
-    if (can_is_msg_accepted())
+    // Message has been accepted, pull it from the buffer
+    for (msg_cnt = 0; msg_cnt < 3; msg_cnt++)   // 3 = SRAMCAN_RF0_NBR
     {
         // Storage for status and received message buffer
         FDCAN_RxHeaderTypeDef rx_msg_header;
         uint8_t rx_msg_data[64] = {0};
-        uint8_t msg_buf[SLCAN_MTU];
 
         // If message received from bus, parse the frame
-        if (can_rx(&rx_msg_header, rx_msg_data) == HAL_OK)
+        if (HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, &rx_msg_header, rx_msg_data) == HAL_OK)
         {
+            uint8_t msg_buf[SLCAN_MTU];
             int32_t msg_len = slcan_parse_rx_frame((uint8_t *)&msg_buf, &rx_msg_header, rx_msg_data);
 
             // Transmit message via USB-CDC
@@ -593,12 +632,76 @@ void can_process(void)
             {
                 cdc_transmit(msg_buf, msg_len);
             }
+
+            if (rx_msg_header.RxTimestamp != can_last_frame_time_cnt)   // Don't count same frame.
+            {
+                uint16_t time_diff, time_msg;
+
+                if (can_last_frame_time_cnt < rx_msg_header.RxTimestamp)
+                    time_diff = rx_msg_header.RxTimestamp - can_last_frame_time_cnt;
+                else
+                    time_diff = UINT16_MAX - can_last_frame_time_cnt + 1 + rx_msg_header.RxTimestamp;
+
+                if (time_diff < UINT16_MAX / 2)     // Don't count if it's rewinded.
+                {
+                    time_msg = can_get_bit_number_in_rx_frame(&rx_msg_header);
+                    
+                    can_bus_load_ppm = (can_bus_load_ppm * 99 + ((uint32_t)1000000 * time_msg) / time_diff) / 100;
+                    can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
+                }
+            }
+
+            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
+            led_blink_blue();
+        }
+        else
+        {
+            break;
         }
     }
 
-    if (can_is_msg_received())
+    // Message has been received, pull it from the buffer
+    for (msg_cnt = 0; msg_cnt < 3; msg_cnt++)   // 3 = SRAMCAN_RF1_NBR
     {
-        led_blink_blue();
+        // Storage for status and received message buffer
+        FDCAN_RxHeaderTypeDef rx_msg_header;
+        uint8_t rx_msg_data[64] = {0};
+
+        // If message received from bus, parse the frame
+        if (HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, &rx_msg_header, rx_msg_data) == HAL_OK)
+        {
+            if (rx_msg_header.RxTimestamp != can_last_frame_time_cnt)   // Don't count same frame.
+            {
+                uint16_t time_diff, time_msg;
+
+                if (can_last_frame_time_cnt < rx_msg_header.RxTimestamp)
+                    time_diff = rx_msg_header.RxTimestamp - can_last_frame_time_cnt;
+                else
+                    time_diff = UINT16_MAX - can_last_frame_time_cnt + 1 + rx_msg_header.RxTimestamp;
+
+                if (time_diff < UINT16_MAX / 2)     // Don't count if it's rewinded.
+                {
+                    time_msg = can_get_bit_number_in_rx_frame(&rx_msg_header);
+                    
+                    can_bus_load_ppm = (can_bus_load_ppm * 99 + ((uint32_t)1000000 * time_msg) / time_diff) / 100;
+                    can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
+                }
+            }
+
+            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
+            led_blink_blue();
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // Update bus load by bus idle
+    if (HAL_FDCAN_GetTimestampCounter(&can_handle) < can_last_frame_time_cnt)
+    {
+        can_bus_load_ppm = (can_bus_load_ppm * 9 + 0) / 10;     // Don't take too much time to return to zero
+        can_last_frame_time_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
     }
 
     // Check for bus errors
@@ -653,7 +756,8 @@ uint8_t can_is_driver_fifo_full(void)
         return 0;
     }
 
-    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 3);
+    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 3) |   // 3 = SRAMCAN_RF0_NBR
+           (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO1) >= 3);    // 3 = SRAMCAN_RF1_NBR
 }
 
 // Check if a CAN message has been received and is waiting in the FIFO
@@ -690,8 +794,10 @@ struct can_bitrate_cfg can_get_bitrate_cfg(void)
 // Get the one bit time in nanoseconds
 uint32_t can_get_bit_time_ns(void)
 {
-    uint32_t result = (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2); // Tq in one bit
-    result = (result * can_bitrate_nominal.prescaler * 1000) / 160;     // Clock: 160MHz = (160 / 1000) GHz
+    uint32_t result = (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
+    result = result * can_bitrate_nominal.prescaler;    // Tq in one bit
+    result = result * 1000;                             // MAX: (1 + 256 + 128) * 1000
+    result = result / 160;                              // Clock: 160MHz = (160 / 1000) GHz
     return result;
 }
 
@@ -721,4 +827,68 @@ void can_clear_cycle_time(void)
 {
     can_cycle_max_time_ns = 0;
     can_cycle_ave_time_ns = 0;
+}
+
+uint32_t can_get_bus_load_ppm(void)
+{
+    return can_bus_load_ppm;
+}
+
+uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
+{
+    uint16_t time_msg, time_data;
+
+    if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_STANDARD_ID)
+    {
+        time_msg = CAN_BIT_NBR_WOD_CBFF + pRxHeader->DataLength * 8;
+    }
+    else if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_EXTENDED_ID)
+    {
+        time_msg = CAN_BIT_NBR_WOD_CEFF + pRxHeader->DataLength * 8;
+    }
+    else
+    {
+        if (pRxHeader->IdType == FDCAN_STANDARD_ID) time_msg = CAN_BIT_NBR_WOD_FBFF_ARBIT;
+        else                                        time_msg = CAN_BIT_NBR_WOD_FEFF_ARBIT;
+
+        if (hal_dlc_code_to_bytes(pRxHeader->DataLength) <= 16)
+            time_data = CAN_BIT_NBR_WOD_FXFF_DATA_S;
+        else
+            time_data = CAN_BIT_NBR_WOD_FXFF_DATA_L;
+
+        time_data = time_data + hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
+
+        if (pRxHeader->BitRateSwitch == FDCAN_BRS_ON)
+        {
+            if (can_bitrate_nominal.prescaler == 0) return 0;   // Uninitialized bitrate (avoid zero-div)
+
+            uint32_t rate_ppm;
+            rate_ppm = (1 + can_bitrate_data.time_seg1 + can_bitrate_data.time_seg2);
+            rate_ppm = rate_ppm * can_bitrate_data.prescaler;     // Tq in one bit (data)
+            rate_ppm = rate_ppm * 1000000;  // MAX: 32 * (32 + 16) * 1000000 
+            rate_ppm = rate_ppm / (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
+            rate_ppm = rate_ppm / can_bitrate_nominal.prescaler;
+
+            time_msg = time_msg + (time_data * rate_ppm) / 1000000;
+        }
+        else
+        {
+            time_msg = time_msg + time_data;
+        }
+    }
+    return time_msg;
+}
+
+uint16_t can_get_bit_number_in_tx_event(FDCAN_TxEventFifoTypeDef *pTxEvent)
+{
+    FDCAN_RxHeaderTypeDef frame_header;
+    frame_header.Identifier = pTxEvent->Identifier;
+    frame_header.IdType = pTxEvent->IdType;
+    frame_header.RxFrameType = pTxEvent->TxFrameType;
+    frame_header.DataLength = pTxEvent->DataLength;
+    frame_header.ErrorStateIndicator = pTxEvent->ErrorStateIndicator;
+    frame_header.BitRateSwitch = pTxEvent->BitRateSwitch;
+    frame_header.FDFormat = pTxEvent->FDFormat;
+    frame_header.RxTimestamp = pTxEvent->TxTimestamp;
+    return can_get_bit_number_in_rx_frame(&frame_header);
 }

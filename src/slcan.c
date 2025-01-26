@@ -55,7 +55,7 @@ char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "
 char *can_info = "I20A0\r";
 char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
-static uint16_t slcan_report_reg = 0;
+static uint16_t slcan_report_reg = 1;   // No timestamp, no ESI, no Tx, but with Rx
 static uint16_t slcan_last_timestamp_ms = 0;
 static uint32_t slcan_last_time_ms = 0;
 static uint32_t slcan_last_timestamp_us = 0;
@@ -201,9 +201,12 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
             time_diff_us = t_comp_us - slcan_last_time_us + current_time_us;
 
         // Compensate overflow of micro second counter
-        n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
-        n_comp = n_comp / t_comp_us;
-        time_diff_us = time_diff_us + n_comp * t_comp_us;
+        if (t_comp_us != 0)     // Proper bit time only (avoid zero-div)
+        {
+            n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
+            n_comp = n_comp / t_comp_us;
+            time_diff_us = time_diff_us + n_comp * t_comp_us;
+        }
 
         slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 0x100000000);
         slcan_last_time_ms = current_time_ms;
@@ -1029,18 +1032,19 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
         }
         else if (buf[0] == 'f')
         {
-            char dbgstr[64] = {0};
+            char dbgstr[128] = {0};
 
             //FDCAN_ProtocolStatusTypeDef sts;
             FDCAN_ErrorCountersTypeDef cnt;
             //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
             HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-            snprintf(dbgstr, 64, "f: av_ct_us=0x%02X, mx_ct_us=0x%02X, tx_ecnt=0x%02X, rx_ecnt=0x%02X\r",
+            snprintf(dbgstr, 128, "f: cycle_time_us_ave_max=[0x%02X, 0x%02X], error_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
                                         (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                         (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
                                         (uint8_t)(cnt.TxErrorCnt),
-                                        (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
+                                        (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt),
+                                        (uint8_t)(can_get_bus_load_ppm() >= 990000 ? 99 : can_get_bus_load_ppm() / 10000));
                                         //(uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
