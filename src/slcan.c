@@ -201,9 +201,12 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
             time_diff_us = t_comp_us - slcan_last_time_us + current_time_us;
 
         // Compensate overflow of micro second counter
-        n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
-        n_comp = n_comp / t_comp_us;
-        time_diff_us = time_diff_us + n_comp * t_comp_us;   // TODO: guard against zero division
+        if (t_comp_us != 0)     // Proper bit time only (avoid zero-div)
+        {
+            n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);
+            n_comp = n_comp / t_comp_us;
+            time_diff_us = time_diff_us + n_comp * t_comp_us;
+        }
 
         slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 0x100000000);
         slcan_last_time_ms = current_time_ms;
