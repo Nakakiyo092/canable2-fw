@@ -570,7 +570,6 @@ void can_process(void)
     {
         // Storage for status and tx event buffer
         FDCAN_TxEventFifoTypeDef tx_event;
-        uint8_t rx_msg_data[64] = {0};
 
         // If message transmitted on bus, parse the frame
         if (HAL_FDCAN_GetTxEvent(&can_handle, &tx_event) == HAL_OK)
@@ -701,13 +700,8 @@ void can_process(void)
     // Update bus load by bus idle
     if (HAL_FDCAN_GetTimestampCounter(&can_handle) < can_last_frame_time_cnt)
     {
-        uint16_t time_now, time_diff;
-
-        time_now = HAL_FDCAN_GetTimestampCounter(&can_handle);
-        time_diff = UINT16_MAX - can_last_frame_time_cnt + 1 + time_now;
-
         can_bus_load_ppm = (can_bus_load_ppm * 9 + 0) / 10;     // Don't take too much time to return to zero
-        can_last_frame_time_cnt = time_now;
+        can_last_frame_time_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
     }
 
     // Check for bus errors
