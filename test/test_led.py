@@ -86,7 +86,7 @@ class LoopbackTestCase(unittest.TestCase):
         cmd_send_ext = (b"R", b"T", b"D", b"B")
 
         print("")
-        print("The both LED should lit 8 times.")
+        print("The both LED should lit 16 times.")
         print("")
 
         # check response to shortest SEND in CAN loopback mode
@@ -107,6 +107,16 @@ class LoopbackTestCase(unittest.TestCase):
         for cmd in cmd_send_ext:
             time.sleep(1.1)
             self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        for cmd in cmd_send_std:
+            time.sleep(1.1)
+            self.send(cmd + b"0000\r")
+            self.assertEqual(self.receive(), b"z\r")
+
+        for cmd in cmd_send_ext:
+            time.sleep(1.1)
+            self.send(cmd + b"000000000\r")
             self.assertEqual(self.receive(), b"Z\r")
 
         time.sleep(1)

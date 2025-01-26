@@ -16,8 +16,6 @@ static uint32_t led_blue_lastoff = 0;
 static uint32_t led_green_lastoff = 0;
 static uint8_t led_error_was_indicating = 0;
 
-static uint32_t led_cycle_max_time_us = 0;
-
 // Initialize LED GPIOs
 void led_init()
 {

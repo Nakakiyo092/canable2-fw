@@ -617,7 +617,7 @@ void can_process(void)
         uint8_t rx_msg_data[64] = {0};
 
         // If message received from bus, parse the frame
-        if (HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, rx_msg_header, rx_msg_data) == HAL_OK)
+        if (HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, &rx_msg_header, rx_msg_data) == HAL_OK)
         {
             if (rx_msg_header.RxTimestamp != can_last_frame_time_cnt)
             {
@@ -632,11 +632,11 @@ void can_process(void)
                 {
                     time_msg = CAN_BIT_NBR_WOD_CBFF + rx_msg_header.DataLength * 8;
                 }
-                elseif (rx_msg_header.FDFormat == FDCAN_CLASSIC_CAN && rx_msg_header.IdType == FDCAN_EXTENDED_ID)
+                else if (rx_msg_header.FDFormat == FDCAN_CLASSIC_CAN && rx_msg_header.IdType == FDCAN_EXTENDED_ID)
                 {
                     time_msg = CAN_BIT_NBR_WOD_CEFF + rx_msg_header.DataLength * 8;
                 }
-                elseif (rx_msg_header.FDFormat == FDCAN_FD_CAN)
+                else
                 {
                     if (rx_msg_header.IdType == FDCAN_STANDARD_ID)  time_msg = CAN_BIT_NBR_WOD_FBFF_ARBIT;
                     else                                            time_msg = CAN_BIT_NBR_WOD_FEFF_ARBIT;
@@ -648,27 +648,34 @@ void can_process(void)
 
                     time_data = time_data + hal_dlc_code_to_bytes(rx_msg_header.DataLength) * 8;
 
-                    if (rx_msg_header.BitRateSwitch = FDCAN_BRS_ON)
+                    if (rx_msg_header.BitRateSwitch == FDCAN_BRS_ON)
                     {
                         uint32_t rate_ppm;
                         rate_ppm = (1 + can_bitrate_data.time_seg1 + can_bitrate_data.time_seg2);
                         rate_ppm = rate_ppm * can_bitrate_data.prescaler;     // Tq in one bit (data)
                         rate_ppm = rate_ppm * 1000000;  // MAX: 32 * (32 + 16) * 1000000 
                         rate_ppm = rate_ppm / (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
-                        rate_ppm = rate_ppm / can_bitrate_nominal.prescaler;
+                        rate_ppm = rate_ppm / can_bitrate_nominal.prescaler;    // TODO: guard against zero division
 
                         time_msg = time_msg + (time_data * rate_ppm) / 1000000;
                     }
                     else
+                    {
                         time_msg = time_msg + time_data;
+                    }
                 }
 
-                can_bus_load_ppm = (can_bus_load_ppm * 99 + (1000000 * time_msg) / time_diff) / 100;
+                // TODO: Update by bus idle
+                can_bus_load_ppm = (can_bus_load_ppm * 99 + ((uint32_t)1000000 * time_msg) / time_diff) / 100;
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
-            if (msg_cnt == 3) error_assert(ERR_CAN_RXFAIL);
+            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
             led_blink_blue();
+        }
+        else
+        {
+            break;
         }
     }
 
@@ -797,7 +804,7 @@ void can_clear_cycle_time(void)
     can_cycle_ave_time_ns = 0;
 }
 
-uint8_t can_get_bus_load_ppm(void)
+uint32_t can_get_bus_load_ppm(void)
 {
     return can_bus_load_ppm;
 }
