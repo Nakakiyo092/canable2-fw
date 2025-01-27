@@ -78,5 +78,7 @@ uint32_t can_get_cycle_ave_time_ns(void);
 uint32_t can_get_cycle_max_time_ns(void);
 void can_clear_cycle_time(void);
 uint32_t can_get_bus_load_ppm(void);
+uint16_t can_get_bir_nbr_interval(void);
+uint16_t can_get_bir_nbr_message(void);
 
 #endif // _CAN_H

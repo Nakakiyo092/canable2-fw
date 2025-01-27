@@ -789,7 +789,7 @@ class LoopbackTestCase(unittest.TestCase):
 
 
     def test_can_tx_buffer(self):
-        #self.print_on = True
+        self.print_on = True
         rx_data_exp = b""
         # check response in CAN loopback mode
         self.send(b"S0\r")  # take ~10ms to send one frame
@@ -803,9 +803,9 @@ class LoopbackTestCase(unittest.TestCase):
             self.send(tx_data)
             rx_data_exp += tx_data
 
-        #self.send(b"F\r")
-        #self.send(b"f\r")
-        #self.send(b"?\r")
+        self.send(b"F\r")
+        self.send(b"f\r")
+        self.send(b"?\r")
 
         # check all reply
         rx_data = self.receive()
