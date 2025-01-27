@@ -15,7 +15,7 @@
 #define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
 
 // Bit number for each frame type with zero data length
-#define CAN_BIT_NBR_WOD_CBFF            48
+#define CAN_BIT_NBR_WOD_CBFF            47
 #define CAN_BIT_NBR_WOD_CEFF            67
 #define CAN_BIT_NBR_WOD_FBFF_ARBIT      30
 #define CAN_BIT_NBR_WOD_FEFF_ARBIT      49
@@ -594,19 +594,12 @@ void can_process(void)
 
             if (tx_event.TxTimestamp != can_last_frame_time_cnt)    // Don't count same frame.
             {
-                uint16_t time_cnt_diff = (uint16_t)(rx_msg_header.RxTimestamp - can_last_frame_time_cnt);
+                uint16_t time_cnt_diff = (uint16_t)(tx_event.TxTimestamp - can_last_frame_time_cnt);
 
                 if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                {
                     can_time_cnt_interval = (can_time_cnt_interval * 9 + time_cnt_diff) / 10;
-                }
                 else    // Rewind
-                {
-                    if (UINT16_MAX - time_cnt_diff < can_time_cnt_interval * 9) // no 
-                        can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
-                    else
-                        can_time_cnt_interval = 0;
-                }
+                    can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
 
                 can_time_cnt_message = (can_time_cnt_message * 9 + can_get_bit_number_in_tx_event(&tx_event)) / 10;
                 can_last_frame_time_cnt = tx_event.TxTimestamp;
@@ -651,7 +644,7 @@ void can_process(void)
                     can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
 
                 can_time_cnt_message = (can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
-                can_last_frame_time_cnt = tx_event.TxTimestamp;
+                can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
             if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
@@ -683,7 +676,7 @@ void can_process(void)
                     can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
 
                 can_time_cnt_message = (can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
-                can_last_frame_time_cnt = tx_event.TxTimestamp;
+                can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
             if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
@@ -697,10 +690,10 @@ void can_process(void)
 
     // Update bus load by bus idle
     uint16_t time_cnt_now = HAL_FDCAN_GetTimestampCounter(&can_handle);
-    if (UINT16_MAX / 10 < (uint16_t)(can_last_frame_time_cnt - time_cnt_now))
+    if (UINT16_MAX / 10 < (uint16_t)(time_cnt_now - can_last_frame_time_cnt))
     {
         can_time_cnt_message = (can_time_cnt_message * 9 + 0) / 10;
-        can_time_cnt_interval = (can_time_cnt_interval * 9 + (uint16_t)(can_last_frame_time_cnt - time_cnt_now)) / 10;
+        can_time_cnt_interval = (can_time_cnt_interval * 9 + (uint16_t)(time_cnt_now - can_last_frame_time_cnt)) / 10;
         can_last_frame_time_cnt = time_cnt_now;
     }
 
@@ -829,6 +822,16 @@ void can_clear_cycle_time(void)
     can_cycle_ave_time_ns = 0;
 }
 
+uint16_t can_get_bir_nbr_interval(void)
+{
+    return can_time_cnt_interval;
+}
+
+uint16_t can_get_bir_nbr_message(void)
+{
+    return can_time_cnt_message;
+}
+
 uint32_t can_get_bus_load_ppm(void)
 {
     if (can_time_cnt_interval != 0)
@@ -841,13 +844,21 @@ uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
 {
     uint16_t time_msg, time_data;
 
-    if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_STANDARD_ID)
+    if (pRxHeader->RxFrameType == FDCAN_REMOTE_FRAME && pRxHeader->IdType == FDCAN_STANDARD_ID)
     {
-        time_msg = CAN_BIT_NBR_WOD_CBFF + pRxHeader->DataLength * 8;
+        time_msg = CAN_BIT_NBR_WOD_CBFF;
+    }
+    else if (pRxHeader->RxFrameType == FDCAN_REMOTE_FRAME && pRxHeader->IdType == FDCAN_EXTENDED_ID)
+    {
+        time_msg = CAN_BIT_NBR_WOD_CEFF;
+    }
+    else if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_STANDARD_ID)
+    {
+        time_msg = CAN_BIT_NBR_WOD_CBFF + hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
     }
     else if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_EXTENDED_ID)
     {
-        time_msg = CAN_BIT_NBR_WOD_CEFF + pRxHeader->DataLength * 8;
+        time_msg = CAN_BIT_NBR_WOD_CEFF + hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
     }
     else
     {
