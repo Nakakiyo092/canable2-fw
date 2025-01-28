@@ -23,7 +23,7 @@
 #define CAN_BIT_NBR_WOD_FXFF_DATA_L     30
 
 #define CAN_TIME_CNT_MAX_REWIND         360         /* Max cycle ~120ms X 3 times margin. should be < MIN_BIT_NBR * 9 */
-#define CAN_BUS_LOAD_BUILDUP_PPM        1000000     /* Compensate stuff bits and round down in laod calc */
+#define CAN_BUS_LOAD_BUILDUP_PPM        1100000     /* Compensate stuff bits and round down in laod calc */
 
 // Cirbuf structure for CAN TX frames
 struct can_tx_buf
