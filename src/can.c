@@ -11,7 +11,7 @@
 #include "system.h"
 
 // CAN transmit buffering
-#define TXQUEUE_LEN                     64  // Number of buffers allocated
+#define TXQUEUE_LEN                     64  // Number of buffers allocated TODO decrease to 32 or less?
 #define TXQUEUE_DATALEN                 64  // CAN DLC length of data buffers. Must be 64 for canfd.
 
 // Bit number for each frame type with zero data length
@@ -42,11 +42,8 @@ static FDCAN_FilterTypeDef can_std_filter;
 static FDCAN_FilterTypeDef can_ext_filter;
 static FDCAN_FilterTypeDef can_std_pass_all;
 static FDCAN_FilterTypeDef can_ext_pass_all;
-static uint8_t can_rx_err_cnt_prev = 0;
-static uint8_t can_tx_err_cnt_prev = 0;
 static enum can_bus_state can_bus_state;
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
-static uint8_t can_autoretransmit = ENABLE;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
@@ -135,13 +132,13 @@ HAL_StatusTypeDef can_enable(void)
         __HAL_RCC_FDCAN_FORCE_RESET();
         __HAL_RCC_FDCAN_RELEASE_RESET();
 
-        can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1; // 144Mhz
+        can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1;
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
         can_handle.Init.Mode = can_mode;
-        can_handle.Init.AutoRetransmission = can_autoretransmit;
-        can_handle.Init.TransmitPause = DISABLE;     // emz
-        can_handle.Init.ProtocolException = DISABLE; // emz
+        can_handle.Init.AutoRetransmission = ENABLE;
+        can_handle.Init.TransmitPause = ENABLE;
+        can_handle.Init.ProtocolException = ENABLE;
 
         can_handle.Init.NominalPrescaler = can_bitrate_nominal.prescaler;
         can_handle.Init.NominalSyncJumpWidth = can_bitrate_nominal.sjw;
@@ -522,6 +519,8 @@ HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
+    static uint8_t rx_err_cnt_prev = 0;
+    static uint8_t tx_err_cnt_prev = 0;
     uint8_t msg_cnt;
 
     // Process tx frames
@@ -575,7 +574,6 @@ void can_process(void)
                 can_last_frame_time_cnt = tx_event.TxTimestamp;
             }
 
-            if (msg_cnt == 2) error_assert(ERR_CAN_TXFAIL);
             led_blink_green();
         }
         else
@@ -617,7 +615,6 @@ void can_process(void)
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
-            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
             led_blink_blue();
         }
         else
@@ -649,7 +646,6 @@ void can_process(void)
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
-            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
             led_blink_blue();
         }
         else
@@ -667,22 +663,55 @@ void can_process(void)
         can_last_frame_time_cnt = time_cnt_now;
     }
 
+    // Check for message loss
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_TX_EVT_FIFO_ELT_LOST))
+    {
+        error_assert(ERR_CAN_TXFAIL);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_TX_EVT_FIFO_ELT_LOST);
+    }
+
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO0_MESSAGE_LOST))
+    {
+        error_assert(ERR_CAN_RXFAIL);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO0_MESSAGE_LOST);
+    }
+
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO1_MESSAGE_LOST))
+    {
+        error_assert(ERR_CAN_RXFAIL);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO1_MESSAGE_LOST);
+    }
+
     // Check for bus errors
     FDCAN_ProtocolStatusTypeDef sts;
     FDCAN_ErrorCountersTypeDef cnt;
+
     HAL_FDCAN_GetProtocolStatus(&can_handle, &sts);
     HAL_FDCAN_GetErrorCounters(&can_handle, &cnt);
-
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
-    if (rx_err_cnt > can_rx_err_cnt_prev || cnt.TxErrorCnt > can_tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);
-    if (sts.Warning) error_assert(ERR_CAN_WARNING);
-    if (sts.ErrorPassive) error_assert(ERR_CAN_ERR_PASSIVE);
-    if (sts.BusOff) error_assert(ERR_CAN_BUS_OFF);
+    if (rx_err_cnt > rx_err_cnt_prev || cnt.TxErrorCnt > tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);
+    rx_err_cnt_prev = rx_err_cnt;
+    tx_err_cnt_prev = cnt.TxErrorCnt;
+    
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_ERROR_WARNING))
+    {
+        error_assert(ERR_CAN_WARNING);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_ERROR_WARNING);
+    }
 
-    can_rx_err_cnt_prev = rx_err_cnt;
-    can_tx_err_cnt_prev = cnt.TxErrorCnt;
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_ERROR_PASSIVE))
+    {
+        error_assert(ERR_CAN_ERR_PASSIVE);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_ERROR_PASSIVE);
+    }
 
-    // Cycle time for debug function
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF))
+    {
+        error_assert(ERR_CAN_ERR_PASSIVE);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF);
+    }
+
+    // Cycle time
     static uint16_t last_time_stamp_cnt = 0;
     uint16_t curr_time_stamp_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
     uint32_t cycle_time_ns;
