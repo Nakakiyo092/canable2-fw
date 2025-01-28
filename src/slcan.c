@@ -407,9 +407,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
         HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-        snprintf(dbgstr, 64, "?%04X-%04X-%02X-%02X-%01X-%04X%04X-%01X-%02X-%02X\r",
-                                    (uint16_t)can_get_bir_nbr_message(),
-                                    (uint16_t)can_get_bir_nbr_interval(),
+        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%01X-%02X-%02X\r",
                                     (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                     (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
                                     (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),

@@ -11,8 +11,8 @@
 #include "system.h"
 
 // CAN transmit buffering
-#define TXQUEUE_LEN 64     // Number of buffers allocated
-#define TXQUEUE_DATALEN 64 // CAN DLC length of data buffers. Must be 64 for canfd.
+#define TXQUEUE_LEN                     64  // Number of buffers allocated
+#define TXQUEUE_DATALEN                 64  // CAN DLC length of data buffers. Must be 64 for canfd.
 
 // Bit number for each frame type with zero data length
 #define CAN_BIT_NBR_WOD_CBFF            47
@@ -58,9 +58,6 @@ static uint16_t can_time_cnt_message = 0;
 static uint16_t can_time_cnt_interval = CAN_BIT_NBR_WOD_CBFF;
 
 // Private methods
-uint8_t can_is_msg_accepted(void);
-uint8_t can_is_driver_fifo_full(void);
-uint8_t can_is_msg_received(void);
 uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader);
 uint16_t can_get_bit_number_in_tx_event(FDCAN_TxEventFifoTypeDef *pRxHeader);
 
@@ -482,24 +479,6 @@ uint32_t can_get_filter_ext_mask(void)
     return can_ext_filter.FilterID2 & 0x1FFFFFFF;
 }
 
-// Set CAN peripheral to autoretransmit mode
-void can_set_autoretransmit(uint8_t autoretransmit)
-{
-    if (can_bus_state == ON_BUS)
-    {
-        // Cannot set autoretransmission while on bus
-        return;
-    }
-    if (autoretransmit)
-    {
-        can_autoretransmit = ENABLE;
-    }
-    else
-    {
-        can_autoretransmit = DISABLE;
-    }
-}
-
 // Send a message on the CAN bus. Called from USB ISR.
 HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
 {
@@ -538,15 +517,6 @@ HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_d
     }
 
     return HAL_OK;
-}
-
-// Receive message from the CAN bus (blocking)
-HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data)
-{
-    HAL_StatusTypeDef status;
-    status = HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, rx_msg_header, rx_msg_data);
-
-    return status;
 }
 
 // Process data from CAN tx/rx circular buffers
@@ -730,48 +700,6 @@ void can_process(void)
 
 }
 
-// Check if a CAN message has been accepted and is waiting in the FIFO
-uint8_t can_is_msg_accepted(void)
-{
-    if (can_bus_state == OFF_BUS)
-    {
-        return 0;
-    }
-
-    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) > 0);
-}
-
-// Check if CAN FIFO buffer is full
-uint8_t can_is_driver_fifo_full(void)
-{
-    if (can_bus_state == OFF_BUS)
-    {
-        return 0;
-    }
-
-    return (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO0) >= 3) |   // 3 = SRAMCAN_RF0_NBR
-           (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO1) >= 3);    // 3 = SRAMCAN_RF1_NBR
-}
-
-// Check if a CAN message has been received and is waiting in the FIFO
-// This functon also deletes one message from the FIFO
-uint8_t can_is_msg_received(void)
-{
-    if (can_bus_state == OFF_BUS)
-    {
-        return 0;
-    }
-
-    uint8_t result = (HAL_FDCAN_GetRxFifoFillLevel(&can_handle, FDCAN_RX_FIFO1) > 0);
-
-    FDCAN_RxHeaderTypeDef rx_msg_header;
-    uint8_t rx_msg_data[TXQUEUE_DATALEN];
-
-    HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO1, &rx_msg_header, rx_msg_data);
-
-    return result;
-}
-
 // Get the data bitrate configuration of the CAN peripheral
 struct can_bitrate_cfg can_get_data_bitrate_cfg(void)
 {
@@ -806,32 +734,26 @@ enum can_bus_state can_get_bus_state(void)
     return can_bus_state;
 }
 
+// Return the maximum cycle time in nano seconds
 uint32_t can_get_cycle_max_time_ns(void)
 {
     return can_cycle_max_time_ns;
 }
 
+// Return the average cycle time in nano seconds
 uint32_t can_get_cycle_ave_time_ns(void)
 {
     return can_cycle_ave_time_ns;
 }
 
+// Clear the maximum and average cycle time
 void can_clear_cycle_time(void)
 {
     can_cycle_max_time_ns = 0;
     can_cycle_ave_time_ns = 0;
 }
 
-uint16_t can_get_bir_nbr_interval(void)
-{
-    return can_time_cnt_interval;
-}
-
-uint16_t can_get_bir_nbr_message(void)
-{
-    return can_time_cnt_message;
-}
-
+// Return CAN bus load in ppm
 uint32_t can_get_bus_load_ppm(void)
 {
     if (can_time_cnt_interval != 0)
@@ -840,6 +762,7 @@ uint32_t can_get_bus_load_ppm(void)
         return ((uint32_t)CAN_BUS_LOAD_BUILDUP_PPM * can_time_cnt_message);
 }
 
+// Return bit number contained in the rx frame
 uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
 {
     uint16_t time_msg, time_data;
@@ -893,6 +816,7 @@ uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
     return time_msg;
 }
 
+// Return bit number contained in the tx event
 uint16_t can_get_bit_number_in_tx_event(FDCAN_TxEventFifoTypeDef *pTxEvent)
 {
     FDCAN_RxHeaderTypeDef frame_header;
