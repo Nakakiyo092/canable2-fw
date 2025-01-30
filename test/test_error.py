@@ -114,6 +114,8 @@ class ErrorTestCase(unittest.TestCase):
         self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"FA4\r")  # BEI & EPI & EI
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")  # Check cleared
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -239,7 +241,7 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"?\r")
         self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F26\r")  # - BEI + CAN Tx Full
+        self.assertEqual(self.receive(), b"F02\r")  # CAN Tx Full
 
         # the buffer can not store anymore messages
         for i in range(0, 64):
@@ -250,11 +252,11 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"?\r")
         self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F26\r")
+        self.assertEqual(self.receive(), b"F02\r")
 
         # check error clear
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F24\r")  # EPI & EI
+        self.assertEqual(self.receive(), b"F00\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
