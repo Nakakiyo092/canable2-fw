@@ -806,7 +806,7 @@ uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
             rate_ppm = rate_ppm / (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
             rate_ppm = rate_ppm / can_bitrate_nominal.prescaler;
 
-            time_msg = time_msg + (time_data * rate_ppm) / 1000000;
+            time_msg = time_msg + ((uint32_t)time_data * rate_ppm) / 1000000;
         }
         else
         {
