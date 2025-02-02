@@ -75,6 +75,4 @@ uint32_t can_get_cycle_ave_time_ns(void);
 uint32_t can_get_cycle_max_time_ns(void);
 uint32_t can_get_bus_load_ppm(void);
 
-uint16_t can_get_bit_nbr(void);
-
 #endif // _CAN_H
