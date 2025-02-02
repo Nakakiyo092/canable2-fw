@@ -18,7 +18,7 @@ enum slcan_status_flag
     SLCAN_STS_CAN_TX_FIFO_FULL,     /* Message loss. Not mean the buffer is just full. */
     SLCAN_STS_ERROR_WARNING,
     SLCAN_STS_DATA_OVERRUN,
-    SLCAN_STS_BUS_OFF,
+    SLCAN_STS_RESERVED,
     SLCAN_STS_ERROR_PASSIVE,
     SLCAN_STS_ARBITRATION_LOST,
     SLCAN_STS_BUS_ERROR
@@ -402,20 +402,18 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case '?':
         char dbgstr[64] = {0};
 
-        FDCAN_ProtocolStatusTypeDef sts;
-        FDCAN_ErrorCountersTypeDef cnt;
-        HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
-        HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+        //FDCAN_ProtocolStatusTypeDef sts;
+        //FDCAN_ErrorCountersTypeDef cnt;
+        //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
+        //HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%01X-%02X-%02X\r",
+        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%04X\r",
                                     (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                     (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
                                     (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                     (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
                                     (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
-                                    (uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
-                                    (uint8_t)(cnt.TxErrorCnt),
-                                    (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt));
+                                    (uint16_t)(error_get_register()));
 
         cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
         can_clear_cycle_time();
@@ -615,6 +613,8 @@ void slcan_parse_str_open(uint8_t *buf, uint8_t len)
     }
 
     error_clear();
+    can_clear_cycle_time();
+
     if (buf[0] == 'O')
     {
         if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
@@ -653,6 +653,8 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
     }
 
     error_clear();
+    can_clear_cycle_time();
+
     // Mode loopback
     if (buf[0] == '+')
     {
@@ -694,7 +696,10 @@ void slcan_parse_str_close(uint8_t *buf, uint8_t len)
         cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
     else
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+
     error_clear();
+    can_clear_cycle_time();
+
     return;
 }
 
@@ -1024,24 +1029,33 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
             status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
             status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
             status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
-            status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_BUS_OFF)) : status;
+            status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
 
             char stsstr[64] = {0};
             snprintf(stsstr, 64, "F%02X\r", status);
             cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+
+            // This command also clear the RED Error LED.
+            error_clear();
         }
         else if (buf[0] == 'f')
         {
             char dbgstr[128] = {0};
 
-            //FDCAN_ProtocolStatusTypeDef sts;
+            FDCAN_ProtocolStatusTypeDef sts;
             FDCAN_ErrorCountersTypeDef cnt;
-            //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
+            HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
             HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
 
-            snprintf(dbgstr, 128, "f: cycle_time_us_ave_max=[0x%02X, 0x%02X], error_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
-                                        (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
-                                        (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
+            snprintf(dbgstr, 128, "f: node_sts=%s, error_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
+                                        (sts.BusOff ? "BUS_OFF" : (sts.ErrorPassive ? "ER_PSSV" : "ER_ACTV")),
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_NONE ? "NONE" : 
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_STUFF ? "STUF" : 
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_FORM ? "FORM" : 
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_ACK ? "ACK" : 
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_BIT1 ? "BIT1" : 
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_BIT0 ? "BIT0" : 
+                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_CRC ? "CRC" : "SAME"))))))),
                                         (uint8_t)(cnt.TxErrorCnt),
                                         (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt),
                                         (uint8_t)(can_get_bus_load_ppm() >= 990000 ? 99 : can_get_bus_load_ppm() / 10000));
@@ -1051,7 +1065,6 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
                                         //(uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
 
             cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
-            can_clear_cycle_time();
         }
     }
     // This command is only active if the CAN channel is open.
@@ -1059,8 +1072,6 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
     {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
     }
-    // This command also clear the RED Error LED.
-    error_clear();
     return;
 }
 

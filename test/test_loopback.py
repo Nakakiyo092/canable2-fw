@@ -789,23 +789,24 @@ class LoopbackTestCase(unittest.TestCase):
 
 
     def test_can_tx_buffer(self):
-        self.print_on = True
+        #self.print_on = True
         rx_data_exp = b""
         # check response in CAN loopback mode
-        self.send(b"S0\r")  # take ~10ms to send one frame
+        #self.send(b"S0\r")  # take ~10ms to send one frame
+        self.send(b"sFFFF8080\r")  # take ~10ms to send one frame
+        self.assertEqual(self.receive(), b"\r")
+        #self.send(b"Y0\r")
+        self.send(b"y20201010\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
         # the buffer can store as least 64 messages
         for i in range(0, 64):
-            tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
+            #tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
+            tx_data = b"B1EC80137F00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDD" + format(i, "04X").encode() + b"\r"
             self.send(tx_data)
             rx_data_exp += tx_data
-
-        self.send(b"F\r")
-        self.send(b"f\r")
-        self.send(b"?\r")
 
         # check all reply
         rx_data = self.receive()

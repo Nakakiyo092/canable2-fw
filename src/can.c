@@ -11,7 +11,7 @@
 #include "system.h"
 
 // CAN transmit buffering
-#define TXQUEUE_LEN                     64  // Number of buffers allocated
+#define TXQUEUE_LEN                     64  // Number of buffers allocated TODO decrease to 32 or less?
 #define TXQUEUE_DATALEN                 64  // CAN DLC length of data buffers. Must be 64 for canfd.
 
 // Bit number for each frame type with zero data length
@@ -42,11 +42,8 @@ static FDCAN_FilterTypeDef can_std_filter;
 static FDCAN_FilterTypeDef can_ext_filter;
 static FDCAN_FilterTypeDef can_std_pass_all;
 static FDCAN_FilterTypeDef can_ext_pass_all;
-static uint8_t can_rx_err_cnt_prev = 0;
-static uint8_t can_tx_err_cnt_prev = 0;
 static enum can_bus_state can_bus_state;
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
-static uint8_t can_autoretransmit = ENABLE;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
@@ -56,6 +53,8 @@ static uint32_t can_bus_load_ppm = 0;
 static uint16_t can_last_frame_time_cnt = 0;
 static uint16_t can_time_cnt_message = 0;
 static uint16_t can_time_cnt_interval = CAN_BIT_NBR_WOD_CBFF;
+
+uint16_t can_bit_nbr = 0;
 
 // Private methods
 uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader);
@@ -135,13 +134,13 @@ HAL_StatusTypeDef can_enable(void)
         __HAL_RCC_FDCAN_FORCE_RESET();
         __HAL_RCC_FDCAN_RELEASE_RESET();
 
-        can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1; // 144Mhz
+        can_handle.Init.ClockDivider = FDCAN_CLOCK_DIV1;
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
         can_handle.Init.Mode = can_mode;
-        can_handle.Init.AutoRetransmission = can_autoretransmit;
-        can_handle.Init.TransmitPause = DISABLE;     // emz
-        can_handle.Init.ProtocolException = DISABLE; // emz
+        can_handle.Init.AutoRetransmission = ENABLE;
+        can_handle.Init.TransmitPause = ENABLE;
+        can_handle.Init.ProtocolException = ENABLE;
 
         can_handle.Init.NominalPrescaler = can_bitrate_nominal.prescaler;
         can_handle.Init.NominalSyncJumpWidth = can_bitrate_nominal.sjw;
@@ -522,6 +521,8 @@ HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
+    static uint8_t rx_err_cnt_prev = 0;
+    static uint8_t tx_err_cnt_prev = 0;
     uint8_t msg_cnt;
 
     // Process tx frames
@@ -567,15 +568,15 @@ void can_process(void)
                 uint16_t time_cnt_diff = (uint16_t)(tx_event.TxTimestamp - can_last_frame_time_cnt);
 
                 if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                    can_time_cnt_interval = (can_time_cnt_interval * 9 + time_cnt_diff) / 10;
+                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + time_cnt_diff) / 10;
                 else    // Rewind
-                    can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
+                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
 
-                can_time_cnt_message = (can_time_cnt_message * 9 + can_get_bit_number_in_tx_event(&tx_event)) / 10;
+                can_bit_nbr = can_get_bit_number_in_tx_event(&tx_event);
+                can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + can_bit_nbr) / 10;
                 can_last_frame_time_cnt = tx_event.TxTimestamp;
             }
 
-            if (msg_cnt == 2) error_assert(ERR_CAN_TXFAIL);
             led_blink_green();
         }
         else
@@ -609,15 +610,14 @@ void can_process(void)
                 uint16_t time_cnt_diff = (uint16_t)(rx_msg_header.RxTimestamp - can_last_frame_time_cnt);
 
                 if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                    can_time_cnt_interval = (can_time_cnt_interval * 9 + time_cnt_diff) / 10;
+                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + time_cnt_diff) / 10;
                 else    // Rewind
-                    can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
+                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
 
-                can_time_cnt_message = (can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
+                can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
-            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
             led_blink_blue();
         }
         else
@@ -641,15 +641,14 @@ void can_process(void)
                 uint16_t time_cnt_diff = (uint16_t)(rx_msg_header.RxTimestamp - can_last_frame_time_cnt);
 
                 if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                    can_time_cnt_interval = (can_time_cnt_interval * 9 + time_cnt_diff) / 10;
+                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + time_cnt_diff) / 10;
                 else    // Rewind
-                    can_time_cnt_interval = (can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
+                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
 
-                can_time_cnt_message = (can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
+                can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
-            if (msg_cnt == 2) error_assert(ERR_CAN_RXFAIL);
             led_blink_blue();
         }
         else
@@ -662,27 +661,60 @@ void can_process(void)
     uint16_t time_cnt_now = HAL_FDCAN_GetTimestampCounter(&can_handle);
     if (UINT16_MAX / 10 < (uint16_t)(time_cnt_now - can_last_frame_time_cnt))
     {
-        can_time_cnt_message = (can_time_cnt_message * 9 + 0) / 10;
-        can_time_cnt_interval = (can_time_cnt_interval * 9 + (uint16_t)(time_cnt_now - can_last_frame_time_cnt)) / 10;
+        can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + 0) / 10;
+        can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + (uint16_t)(time_cnt_now - can_last_frame_time_cnt)) / 10;
         can_last_frame_time_cnt = time_cnt_now;
+    }
+
+    // Check for message loss
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_TX_EVT_FIFO_ELT_LOST))
+    {
+        error_assert(ERR_CAN_TXFAIL);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_TX_EVT_FIFO_ELT_LOST);
+    }
+
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO0_MESSAGE_LOST))
+    {
+        error_assert(ERR_CAN_RXFAIL);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO0_MESSAGE_LOST);
+    }
+
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO1_MESSAGE_LOST))
+    {
+        error_assert(ERR_CAN_RXFAIL);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_RX_FIFO1_MESSAGE_LOST);
     }
 
     // Check for bus errors
     FDCAN_ProtocolStatusTypeDef sts;
     FDCAN_ErrorCountersTypeDef cnt;
+
     HAL_FDCAN_GetProtocolStatus(&can_handle, &sts);
     HAL_FDCAN_GetErrorCounters(&can_handle, &cnt);
-
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
-    if (rx_err_cnt > can_rx_err_cnt_prev || cnt.TxErrorCnt > can_tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);
-    if (sts.Warning) error_assert(ERR_CAN_WARNING);
-    if (sts.ErrorPassive) error_assert(ERR_CAN_ERR_PASSIVE);
-    if (sts.BusOff) error_assert(ERR_CAN_BUS_OFF);
+    if (rx_err_cnt > rx_err_cnt_prev || cnt.TxErrorCnt > tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);
+    rx_err_cnt_prev = rx_err_cnt;
+    tx_err_cnt_prev = cnt.TxErrorCnt;
+    
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_ERROR_WARNING))
+    {
+        error_assert(ERR_CAN_WARNING);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_ERROR_WARNING);
+    }
 
-    can_rx_err_cnt_prev = rx_err_cnt;
-    can_tx_err_cnt_prev = cnt.TxErrorCnt;
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_ERROR_PASSIVE))
+    {
+        error_assert(ERR_CAN_ERR_PASSIVE);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_ERROR_PASSIVE);
+    }
 
-    // Cycle time for debug function
+    if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF))
+    {
+        error_assert(ERR_CAN_ERR_PASSIVE);
+        __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF);
+    }
+
+    // Cycle time
     static uint16_t last_time_stamp_cnt = 0;
     uint16_t curr_time_stamp_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
     uint32_t cycle_time_ns;
@@ -694,10 +726,15 @@ void can_process(void)
     if (can_cycle_max_time_ns < cycle_time_ns)
         can_cycle_max_time_ns = cycle_time_ns;
         
-    can_cycle_ave_time_ns = (can_cycle_ave_time_ns * 9 + cycle_time_ns) / 10;
+    can_cycle_ave_time_ns = ((uint32_t)can_cycle_ave_time_ns * 9 + cycle_time_ns) / 10;
     
     last_time_stamp_cnt = curr_time_stamp_cnt;
 
+}
+
+uint16_t can_get_bit_nbr(void)
+{
+    return (uint16_t)can_time_cnt_interval;
 }
 
 // Get the data bitrate configuration of the CAN peripheral
@@ -715,7 +752,7 @@ struct can_bitrate_cfg can_get_bitrate_cfg(void)
 // Get the one bit time in nanoseconds
 uint32_t can_get_bit_time_ns(void)
 {
-    uint32_t result = (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
+    uint32_t result = ((uint32_t)1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
     result = result * can_bitrate_nominal.prescaler;    // Tq in one bit
     result = result * 1000;                             // MAX: (1 + 256 + 128) * 1000
     result = result / 160;                              // Clock: 160MHz = (160 / 1000) GHz
@@ -777,11 +814,11 @@ uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
     }
     else if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_STANDARD_ID)
     {
-        time_msg = CAN_BIT_NBR_WOD_CBFF + hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
+        time_msg = CAN_BIT_NBR_WOD_CBFF + (uint16_t)hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
     }
     else if (pRxHeader->FDFormat == FDCAN_CLASSIC_CAN && pRxHeader->IdType == FDCAN_EXTENDED_ID)
     {
-        time_msg = CAN_BIT_NBR_WOD_CEFF + hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
+        time_msg = CAN_BIT_NBR_WOD_CEFF + (uint16_t)hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
     }
     else
     {
@@ -793,17 +830,17 @@ uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
         else
             time_data = CAN_BIT_NBR_WOD_FXFF_DATA_L;
 
-        time_data = time_data + hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
+        time_data = time_data + (uint16_t)hal_dlc_code_to_bytes(pRxHeader->DataLength) * 8;
 
         if (pRxHeader->BitRateSwitch == FDCAN_BRS_ON)
         {
             if (can_bitrate_nominal.prescaler == 0) return 0;   // Uninitialized bitrate (avoid zero-div)
 
             uint32_t rate_ppm;
-            rate_ppm = (1 + can_bitrate_data.time_seg1 + can_bitrate_data.time_seg2);
+            rate_ppm = ((uint32_t)1 + can_bitrate_data.time_seg1 + can_bitrate_data.time_seg2);
             rate_ppm = rate_ppm * can_bitrate_data.prescaler;     // Tq in one bit (data)
             rate_ppm = rate_ppm * 1000000;  // MAX: 32 * (32 + 16) * 1000000 
-            rate_ppm = rate_ppm / (1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
+            rate_ppm = rate_ppm / ((uint32_t)1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
             rate_ppm = rate_ppm / can_bitrate_nominal.prescaler;
 
             time_msg = time_msg + ((uint32_t)time_data * rate_ppm) / 1000000;
