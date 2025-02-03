@@ -402,11 +402,6 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     case '?':
         char dbgstr[64] = {0};
 
-        //FDCAN_ProtocolStatusTypeDef sts;
-        //FDCAN_ErrorCountersTypeDef cnt;
-        //HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
-        //HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
-
         snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%04X\r",
                                     (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                     (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
@@ -1042,22 +1037,19 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
         {
             char dbgstr[128] = {0};
 
-            FDCAN_ProtocolStatusTypeDef sts;
-            FDCAN_ErrorCountersTypeDef cnt;
-            HAL_FDCAN_GetProtocolStatus(can_get_handle(), &sts);
-            HAL_FDCAN_GetErrorCounters(can_get_handle(), &cnt);
+            struct can_error_state err = can_get_error_state();
 
-            snprintf(dbgstr, 128, "f: node_sts=%s, error_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
-                                        (sts.BusOff ? "BUS_OFF" : (sts.ErrorPassive ? "ER_PSSV" : "ER_ACTV")),
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_NONE ? "NONE" : 
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_STUFF ? "STUF" : 
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_FORM ? "FORM" : 
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_ACK ? "ACK" : 
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_BIT1 ? "BIT1" : 
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_BIT0 ? "BIT0" : 
-                                        //(sts.LastErrorCode == FDCAN_PROTOCOL_ERROR_CRC ? "CRC" : "SAME"))))))),
-                                        (uint8_t)(cnt.TxErrorCnt),
-                                        (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt),
+            snprintf(dbgstr, 128, "f: node_sts=%s, last_err_code=%s, err_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
+                                        (err.bus_off ? "BUS_OFF" : (err.err_pssv ? "ER_PSSV" : "ER_ACTV")),
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_NONE ? "NONE" : 
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_STUFF ? "STUF" : 
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_FORM ? "FORM" : 
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_ACK ? "_ACK" : 
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_BIT1 ? "BIT1" : 
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_BIT0 ? "BIT0" : 
+                                        (err.last_err_code == FDCAN_PROTOCOL_ERROR_CRC ? "_CRC" : "SAME"))))))),
+                                        (uint8_t)(err.tec),
+                                        (uint8_t)(err.rec),
                                         (uint8_t)(can_get_bus_load_ppm() >= 990000 ? 99 : can_get_bus_load_ppm() / 10000));
                                         //(uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),

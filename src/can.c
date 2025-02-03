@@ -44,6 +44,7 @@ static FDCAN_FilterTypeDef can_ext_filter;
 static FDCAN_FilterTypeDef can_std_pass_all;
 static FDCAN_FilterTypeDef can_ext_pass_all;
 static enum can_bus_state can_bus_state;
+static struct can_error_state can_error_state = {0};
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
@@ -518,8 +519,6 @@ HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
-    static uint8_t rx_err_cnt_prev = 0;
-    static uint8_t tx_err_cnt_prev = 0;
     uint8_t msg_cnt;
 
     // Process tx frames
@@ -669,10 +668,15 @@ void can_process(void)
     HAL_FDCAN_GetProtocolStatus(&can_handle, &sts);
     HAL_FDCAN_GetErrorCounters(&can_handle, &cnt);
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
-    if (rx_err_cnt > rx_err_cnt_prev || cnt.TxErrorCnt > tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);
-    rx_err_cnt_prev = rx_err_cnt;
-    tx_err_cnt_prev = cnt.TxErrorCnt;
-    
+    if (rx_err_cnt > can_error_state.rec || cnt.TxErrorCnt > can_error_state.tec) error_assert(ERR_CAN_BUS_ERR);
+
+    can_error_state.bus_off = (uint8_t)sts.BusOff;
+    can_error_state.err_pssv = (uint8_t)sts.ErrorPassive;
+    can_error_state.tec = (uint8_t)cnt.TxErrorCnt;
+    can_error_state.rec = (uint8_t)rx_err_cnt;
+    if (sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NO_CHANGE)
+        can_error_state.last_err_code = sts.LastErrorCode;
+
     if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_ERROR_WARNING))
     {
         error_assert(ERR_CAN_WARNING);
@@ -741,6 +745,11 @@ FDCAN_HandleTypeDef *can_get_handle(void)
 enum can_bus_state can_get_bus_state(void)
 {
     return can_bus_state;
+}
+
+struct can_error_state can_get_error_state(void)
+{
+    return can_error_state;
 }
 
 // Return the maximum cycle time in nano seconds
