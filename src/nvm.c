@@ -13,7 +13,7 @@
 enum nvm_memory_status
 {
     NVM_MEMORY_WRITTEN = 0xA,
-    NVM_MEMORY_CLEARED = 0xF
+    NVM_MEMORY_CLEARED = 0xF    /* Flash memory store 0xFF when cleared */
 };
 
 #define NVM_PAGE_NUMBER_DATA      (63)                          /* Page number of data area (see RM0440-5.3.1) */

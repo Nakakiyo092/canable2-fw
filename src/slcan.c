@@ -20,7 +20,7 @@ enum slcan_status_flag
     SLCAN_STS_DATA_OVERRUN,
     SLCAN_STS_RESERVED,
     SLCAN_STS_ERROR_PASSIVE,
-    SLCAN_STS_ARBITRATION_LOST,
+    SLCAN_STS_ARBITRATION_LOST,     /* Not supported */
     SLCAN_STS_BUS_ERROR
 };
 
@@ -50,19 +50,17 @@ enum slcan_filter_mode
 #define SLCAN_RET_LEN   (1)
 
 // Private variables
-char *hw_sw_ver = SLCAN_VERSION "\r";
-char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "\", url=\"" GIT_REMOTE "\"\r";
-char *can_info = "I20A0\r";
-char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
+static char *hw_sw_ver = SLCAN_VERSION "\r";
+static char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "\", url=\"" GIT_REMOTE "\"\r";
+static char *can_info = "I20A0\r";
+static char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
-static uint16_t slcan_report_reg = 1;   // No timestamp, no ESI, no Tx, but with Rx
-static uint16_t slcan_last_timestamp_ms = 0;
-static uint32_t slcan_last_time_ms = 0;
+static uint16_t slcan_report_reg = 1;   // Default: no timestamp, no ESI, no Tx, but with Rx
 static uint32_t slcan_filter_code = 0x00000000;
 static uint32_t slcan_filter_mask = 0xFFFFFFFF;
 
 // Private methods
-int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data);
+static int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data);
 static HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_open(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_loop(uint8_t *buf, uint8_t len);
@@ -161,15 +159,14 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
     }
 
     // Add time stamp
+    static uint16_t slcan_last_timestamp_ms = 0;
+    static uint32_t slcan_last_time_ms = 0;
     if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
     {
         uint32_t current_time_ms = HAL_GetTick();
         uint32_t time_diff_ms;
 
-        if (slcan_last_time_ms <= current_time_ms)
-            time_diff_ms = current_time_ms - slcan_last_time_ms;
-        else
-            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+        time_diff_ms = (uint32_t)(current_time_ms - slcan_last_time_ms);
 
         slcan_last_timestamp_ms = (uint16_t)(((uint32_t)slcan_last_timestamp_ms + time_diff_ms % 60000) % 60000);
         slcan_last_time_ms = current_time_ms;
@@ -216,10 +213,7 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
 // Parse an incoming CAN frame into an outgoing slcan message
 int32_t slcan_parse_rx_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data)
 {
-    // Clear buffer
-    for (uint8_t j = 0; j < SLCAN_MTU; j++)
-        buf[j] = '\0';
-
+    // Rx reporting not required
     if (((slcan_report_reg >> SLCAN_REPORT_RX) & 1) == 0)
         return 0;
 
@@ -232,10 +226,7 @@ int32_t slcan_parse_rx_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, 
 // Parse an incoming Tx event into an outgoing slcan message
 int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, uint8_t *frame_data)
 {
-    // Clear buffer
-    for (uint8_t j = 0; j < SLCAN_MTU; j++)
-        buf[j] = '\0';
-
+    // Tx reporting not required
     if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
         return 0;
 
@@ -252,7 +243,7 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
     frame_header.ErrorStateIndicator = tx_event->ErrorStateIndicator;
     frame_header.BitRateSwitch = tx_event->BitRateSwitch;
     frame_header.FDFormat = tx_event->FDFormat;
-    frame_header.RxTimestamp = tx_event->TxTimestamp;
+    //frame_header.RxTimestamp = tx_event->TxTimestamp;
     int32_t msg_idx = slcan_parse_frame(&buf[1], &frame_header, frame_data);
 
     // Return string length
@@ -358,6 +349,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         return;
     // Debug function
     case '?':
+    {
         char dbgstr[64] = {0};
 
         snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%04X\r",
@@ -371,7 +363,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
         can_clear_cycle_time();
         return;
-
+    }
     // Transmit remote frame command
     case 'r':
         frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
@@ -465,6 +457,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
+    // If dlc is too long for an classical frame
     if (frame_header.FDFormat == FDCAN_CLASSIC_CAN)
     {
         if (frame_header.TxFrameType == FDCAN_DATA_FRAME && dlc_code_raw > 0x8)
@@ -516,6 +509,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     {
         if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
         {
+            // Send ACK (not neccessary if tx event is reported)
             char repstr[64] = {0};
             if (frame_header.IdType == FDCAN_EXTENDED_ID)
                 snprintf(repstr, 64, "Z\r");
@@ -570,6 +564,7 @@ void slcan_parse_str_open(uint8_t *buf, uint8_t len)
 
     if (buf[0] == 'O')
     {
+        // Mode default
         if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
         {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
@@ -587,11 +582,10 @@ void slcan_parse_str_open(uint8_t *buf, uint8_t len)
     }
     // Open CAN port
     if (can_enable() != HAL_OK)
-    {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
-    }
-    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+
     return;
 }
 
@@ -627,11 +621,10 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
     }
     // Open CAN port
     if (can_enable() != HAL_OK)
-    {
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-        return;
-    }
-    cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+    else
+        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+
     return;
 }
 
@@ -644,7 +637,7 @@ void slcan_parse_str_close(uint8_t *buf, uint8_t len)
         cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
-
+    // Close CAN port
     if (can_disable() == HAL_OK)
         cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
     else
@@ -688,10 +681,10 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
         }
 
         struct can_bitrate_cfg bitrate_cfg;
-        bitrate_cfg.prescaler = (buf[1] << 4) + buf[2];
-        bitrate_cfg.time_seg1 = (buf[3] << 4) + buf[4];
-        bitrate_cfg.time_seg2 = (buf[5] << 4) + buf[6];
-        bitrate_cfg.sjw = (buf[7] << 4) + buf[8];
+        bitrate_cfg.prescaler = ((uint16_t)buf[1] << 4) + buf[2];
+        bitrate_cfg.time_seg1 = ((uint16_t)buf[3] << 4) + buf[4];
+        bitrate_cfg.time_seg2 = ((uint16_t)buf[5] << 4) + buf[6];
+        bitrate_cfg.sjw = ((uint16_t)buf[7] << 4) + buf[8];
 
         HAL_StatusTypeDef ret;
         if (buf[0] == 's')
@@ -900,6 +893,7 @@ void slcan_parse_str_version(uint8_t *buf, uint8_t len)
         cdc_transmit((uint8_t *)hw_sw_ver, strlen(hw_sw_ver));
     else if (buf[0] == 'v')
         cdc_transmit((uint8_t *)hw_sw_ver_detail, strlen(hw_sw_ver_detail));
+
     return;
 }
 
@@ -917,6 +911,7 @@ void slcan_parse_str_can_info(uint8_t *buf, uint8_t len)
         cdc_transmit((uint8_t *)can_info, strlen(can_info));
     else if (buf[0] == 'i')
         cdc_transmit((uint8_t *)can_info_detail, strlen(can_info_detail));
+
     return;
 }
 
@@ -1039,11 +1034,10 @@ void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
         }
 
         if (nvm_update_startup_cfg(buf[1]) != HAL_OK)
-        {
             cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
-            return;
-        }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        else
+            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            
         return;
     }
     // Command works only when CAN channel is open.

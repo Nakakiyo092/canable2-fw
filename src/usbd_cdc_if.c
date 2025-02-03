@@ -35,7 +35,7 @@ struct usb_rx_buf
 
 // Private variables
 static struct usb_tx_buf txbuf = {0};
-static struct usb_rx_buf rxbuf = {0};
+static volatile struct usb_rx_buf rxbuf = {0};
 static uint8_t tx_linbuf[TX_LINBUF_SIZE] = {0};
 static uint8_t slcan_str[SLCAN_MTU];
 static uint8_t slcan_str_index = 0;
@@ -73,7 +73,7 @@ static int8_t CDC_Init_FS(void)
     rxbuf.full = 0;
 
     USBD_CDC_SetTxBuffer(&hUsbDeviceFS, tx_linbuf, 0);
-    USBD_CDC_SetRxBuffer(&hUsbDeviceFS, rxbuf.buf[rxbuf.head]);
+    USBD_CDC_SetRxBuffer(&hUsbDeviceFS, (uint8_t *)rxbuf.buf[rxbuf.head]);
     return (USBD_OK);
 }
 
@@ -188,7 +188,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
         error_assert(ERR_FULLBUF_USBRX);
 
         // Listen again on the same buffer. Old data will be overwritten.
-        USBD_CDC_SetRxBuffer(&hUsbDeviceFS, rxbuf.buf[rxbuf.head]);
+        USBD_CDC_SetRxBuffer(&hUsbDeviceFS, (uint8_t *)rxbuf.buf[rxbuf.head]);
         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
         return HAL_ERROR;
     }
@@ -200,7 +200,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
         if (rxbuf.head == rxbuf.tail) rxbuf.full = 1;
 
         // Start listening on next buffer. Previous buffer will be processed in main loop.
-        USBD_CDC_SetRxBuffer(&hUsbDeviceFS, rxbuf.buf[rxbuf.head]);
+        USBD_CDC_SetRxBuffer(&hUsbDeviceFS, (uint8_t *)rxbuf.buf[rxbuf.head]);
         USBD_CDC_ReceivePacket(&hUsbDeviceFS);
         return (USBD_OK);
     }
@@ -276,11 +276,11 @@ void cdc_transmit(uint8_t* buf, uint16_t len)
     uint32_t available_space = (USBTXQUEUE_LEN + txbuf.tail - txbuf.head) % USBTXQUEUE_LEN;
     if (!txbuf.full && txbuf.tail == txbuf.head)
     {
-        available_space = USBTXQUEUE_LEN;
+        available_space = USBTXQUEUE_LEN;   // The buffer is empty
     }
     if (len > available_space)
     {
-        error_assert(ERR_FULLBUF_USBTX);
+        error_assert(ERR_FULLBUF_USBTX);    // The data does not fit in the buffer
     }
     else
     {
