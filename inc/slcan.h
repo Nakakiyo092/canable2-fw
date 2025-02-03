@@ -6,7 +6,6 @@ enum slcan_timestamp_mode
 {
     SLCAN_TIMESTAMP_OFF = 0,
     SLCAN_TIMESTAMP_MILLI,
-    SLCAN_TIMESTAMP_MICRO,
 
     SLCAN_TIMESTAMP_INVALID
 };
