@@ -25,6 +25,7 @@
 #define CAN_TIME_CNT_MAX_REWIND         360         /* Max cycle ~120ms X 3 times margin. should be < MIN_BIT_NBR * 9 */
 #define CAN_BUS_LOAD_BUILDUP_PPM        1100000     /* Compensate stuff bits and round down in laod calc */
 
+
 // Cirbuf structure for CAN TX frames
 struct can_tx_buf
 {
@@ -43,6 +44,7 @@ static FDCAN_FilterTypeDef can_ext_filter;
 static FDCAN_FilterTypeDef can_std_pass_all;
 static FDCAN_FilterTypeDef can_ext_pass_all;
 static enum can_bus_state can_bus_state;
+static struct can_error_state can_error_state = {0};
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
 static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
@@ -51,10 +53,7 @@ static uint32_t can_cycle_max_time_ns = 0;
 static uint32_t can_cycle_ave_time_ns = 0;
 static uint32_t can_bus_load_ppm = 0;
 static uint16_t can_last_frame_time_cnt = 0;
-static uint16_t can_time_cnt_message = 0;
-static uint16_t can_time_cnt_interval = CAN_BIT_NBR_WOD_CBFF;
-
-uint16_t can_bit_nbr = 0;
+static uint32_t can_time_cnt_message = 0;
 
 // Private methods
 uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader);
@@ -168,7 +167,7 @@ HAL_StatusTypeDef can_enable(void)
         }
         else
         {
-            // Corresponds to bitrate ~ 1Mbps when offset = 0x7F, compensation would not be must
+            // Corresponds to bitrate ~ 1Mbps when offset = 0x7F, compensation would not be a must
             HAL_FDCAN_DisableTxDelayCompensation(&can_handle);
         }
 
@@ -194,7 +193,6 @@ HAL_StatusTypeDef can_enable(void)
         can_bus_load_ppm = 0;
         can_last_frame_time_cnt = 0;
         can_time_cnt_message = 0;
-        can_time_cnt_interval = CAN_BIT_NBR_WOD_CBFF;
 
         led_turn_green(LED_OFF);
 
@@ -521,8 +519,6 @@ HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_d
 // Process data from CAN tx/rx circular buffers
 void can_process(void)
 {
-    static uint8_t rx_err_cnt_prev = 0;
-    static uint8_t tx_err_cnt_prev = 0;
     uint8_t msg_cnt;
 
     // Process tx frames
@@ -565,15 +561,7 @@ void can_process(void)
 
             if (tx_event.TxTimestamp != can_last_frame_time_cnt)    // Don't count same frame.
             {
-                uint16_t time_cnt_diff = (uint16_t)(tx_event.TxTimestamp - can_last_frame_time_cnt);
-
-                if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + time_cnt_diff) / 10;
-                else    // Rewind
-                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
-
-                can_bit_nbr = can_get_bit_number_in_tx_event(&tx_event);
-                can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + can_bit_nbr) / 10;
+                can_time_cnt_message += can_get_bit_number_in_tx_event(&tx_event);
                 can_last_frame_time_cnt = tx_event.TxTimestamp;
             }
 
@@ -607,14 +595,7 @@ void can_process(void)
 
             if (rx_msg_header.RxTimestamp != can_last_frame_time_cnt)   // Don't count same frame.
             {
-                uint16_t time_cnt_diff = (uint16_t)(rx_msg_header.RxTimestamp - can_last_frame_time_cnt);
-
-                if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + time_cnt_diff) / 10;
-                else    // Rewind
-                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
-
-                can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
+                can_time_cnt_message += can_get_bit_number_in_rx_frame(&rx_msg_header);
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
@@ -638,14 +619,7 @@ void can_process(void)
         {
             if (rx_msg_header.RxTimestamp != can_last_frame_time_cnt)   // Don't count same frame.
             {
-                uint16_t time_cnt_diff = (uint16_t)(rx_msg_header.RxTimestamp - can_last_frame_time_cnt);
-
-                if (time_cnt_diff < UINT16_MAX - CAN_TIME_CNT_MAX_REWIND)   // Normal order
-                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + time_cnt_diff) / 10;
-                else    // Rewind
-                    can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 - (UINT16_MAX - time_cnt_diff)) / 10;
-
-                can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + can_get_bit_number_in_rx_frame(&rx_msg_header)) / 10;
+                can_time_cnt_message += can_get_bit_number_in_rx_frame(&rx_msg_header);
                 can_last_frame_time_cnt = rx_msg_header.RxTimestamp;
             }
 
@@ -657,13 +631,15 @@ void can_process(void)
         }
     }
 
-    // Update bus load by bus idle
-    uint16_t time_cnt_now = HAL_FDCAN_GetTimestampCounter(&can_handle);
-    if (UINT16_MAX / 10 < (uint16_t)(time_cnt_now - can_last_frame_time_cnt))
+    // Update bus load
+    static uint32_t tick_last = 0;
+    uint32_t tick_now = HAL_GetTick();
+    if (100 <= (uint32_t)(tick_now - tick_last))
     {
-        can_time_cnt_message = ((uint16_t)can_time_cnt_message * 9 + 0) / 10;
-        can_time_cnt_interval = ((uint16_t)can_time_cnt_interval * 9 + (uint16_t)(time_cnt_now - can_last_frame_time_cnt)) / 10;
-        can_last_frame_time_cnt = time_cnt_now;
+        uint32_t rate_us_per_ms = (uint32_t)can_time_cnt_message * can_get_bit_time_ns() / 1000 / 100;   // MAX: 1000
+        can_bus_load_ppm = (can_bus_load_ppm * 7 + (uint32_t)CAN_BUS_LOAD_BUILDUP_PPM * rate_us_per_ms / 1000) >> 3;
+        can_time_cnt_message = 0;
+        tick_last = tick_now;
     }
 
     // Check for message loss
@@ -692,10 +668,15 @@ void can_process(void)
     HAL_FDCAN_GetProtocolStatus(&can_handle, &sts);
     HAL_FDCAN_GetErrorCounters(&can_handle, &cnt);
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
-    if (rx_err_cnt > rx_err_cnt_prev || cnt.TxErrorCnt > tx_err_cnt_prev) error_assert(ERR_CAN_BUS_ERR);
-    rx_err_cnt_prev = rx_err_cnt;
-    tx_err_cnt_prev = cnt.TxErrorCnt;
-    
+    if (rx_err_cnt > can_error_state.rec || cnt.TxErrorCnt > can_error_state.tec) error_assert(ERR_CAN_BUS_ERR);
+
+    can_error_state.bus_off = (uint8_t)sts.BusOff;
+    can_error_state.err_pssv = (uint8_t)sts.ErrorPassive;
+    can_error_state.tec = (uint8_t)cnt.TxErrorCnt;
+    can_error_state.rec = (uint8_t)rx_err_cnt;
+    if (sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NO_CHANGE)
+        can_error_state.last_err_code = sts.LastErrorCode;
+
     if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_ERROR_WARNING))
     {
         error_assert(ERR_CAN_WARNING);
@@ -732,11 +713,6 @@ void can_process(void)
 
 }
 
-uint16_t can_get_bit_nbr(void)
-{
-    return (uint16_t)can_time_cnt_interval;
-}
-
 // Get the data bitrate configuration of the CAN peripheral
 struct can_bitrate_cfg can_get_data_bitrate_cfg(void)
 {
@@ -749,7 +725,7 @@ struct can_bitrate_cfg can_get_bitrate_cfg(void)
     return can_bitrate_nominal;
 }
 
-// Get the one bit time in nanoseconds
+// Get the nominal one bit time in nanoseconds
 uint32_t can_get_bit_time_ns(void)
 {
     uint32_t result = ((uint32_t)1 + can_bitrate_nominal.time_seg1 + can_bitrate_nominal.time_seg2);
@@ -769,6 +745,11 @@ FDCAN_HandleTypeDef *can_get_handle(void)
 enum can_bus_state can_get_bus_state(void)
 {
     return can_bus_state;
+}
+
+struct can_error_state can_get_error_state(void)
+{
+    return can_error_state;
 }
 
 // Return the maximum cycle time in nano seconds
@@ -793,13 +774,10 @@ void can_clear_cycle_time(void)
 // Return CAN bus load in ppm
 uint32_t can_get_bus_load_ppm(void)
 {
-    if (can_time_cnt_interval != 0)
-        return ((uint32_t)CAN_BUS_LOAD_BUILDUP_PPM * can_time_cnt_message) / can_time_cnt_interval;
-    else
-        return ((uint32_t)CAN_BUS_LOAD_BUILDUP_PPM * can_time_cnt_message);
+    return can_bus_load_ppm;
 }
 
-// Return bit number contained in the rx frame
+// Return the duration of the rx frame in the nominal bit number
 uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
 {
     uint16_t time_msg, time_data;
@@ -853,7 +831,7 @@ uint16_t can_get_bit_number_in_rx_frame(FDCAN_RxHeaderTypeDef *pRxHeader)
     return time_msg;
 }
 
-// Return bit number contained in the tx event
+// Return the duration of the tx event in the nominal bit number
 uint16_t can_get_bit_number_in_tx_event(FDCAN_TxEventFifoTypeDef *pTxEvent)
 {
     FDCAN_RxHeaderTypeDef frame_header;

@@ -37,6 +37,16 @@ enum can_bus_state
     ON_BUS
 };
 
+// Bus error state
+struct can_error_state
+{
+    uint8_t bus_off;
+    uint8_t err_pssv;
+    uint8_t tec;
+    uint8_t rec;
+    uint32_t last_err_code;
+};
+
 // Structure for CAN/FD bitrate configuration
 struct can_bitrate_cfg
 {
@@ -68,13 +78,12 @@ uint32_t can_get_filter_std_mask(void);
 uint32_t can_get_filter_ext_code(void);
 uint32_t can_get_filter_ext_mask(void);
 enum can_bus_state can_get_bus_state(void);
+struct can_error_state can_get_error_state(void);
 struct can_bitrate_cfg can_get_bitrate_cfg(void);
 struct can_bitrate_cfg can_get_data_bitrate_cfg(void);
 uint32_t can_get_bit_time_ns(void);
 uint32_t can_get_cycle_ave_time_ns(void);
 uint32_t can_get_cycle_max_time_ns(void);
 uint32_t can_get_bus_load_ppm(void);
-
-uint16_t can_get_bit_nbr(void);
 
 #endif // _CAN_H
