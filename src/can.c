@@ -431,6 +431,10 @@ void can_process(void)
     
     last_time_stamp_cnt = curr_time_stamp_cnt;
 
+    // Green LED on during bus off
+    if (can_bus_state == OFF_BUS)
+        led_turn_green(LED_ON);
+
 }
 
 // Set the nominal bitrate of the CAN peripheral
