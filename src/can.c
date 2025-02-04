@@ -138,7 +138,7 @@ HAL_StatusTypeDef can_enable(void)
 
         can_handle.Init.Mode = can_mode;
         can_handle.Init.AutoRetransmission = ENABLE;
-        can_handle.Init.TransmitPause = ENABLE;
+        can_handle.Init.TransmitPause = DISABLE;
         can_handle.Init.ProtocolException = ENABLE;
 
         can_handle.Init.NominalPrescaler = can_bitrate_nominal.prescaler;
