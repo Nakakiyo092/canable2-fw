@@ -477,6 +477,53 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
 
+    def test_timestamp_micro(self):
+        #self.print_on = True
+
+        # check timestamp on in CAN loopback mode
+        self.send(b"z2001\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"S0\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"Y1\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        tx_frame = b"t55585555555555555555"
+        self.send(tx_frame + b"\r" + tx_frame + b"\r")
+        time.sleep(0.1)
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), 2 * (len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r")))
+
+        pos = 2 * len(b"z\r") + len(tx_frame)
+        timestamp_1st = rx_data[pos : pos + 8]
+
+        pos = 2 * len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r") + len(tx_frame)
+        timestamp_2nd = rx_data[pos : pos + 8]
+
+        tims_exp_us = (int(timestamp_1st, 16) + (111 + 1 + 2) * 100) % 0x100000000   # 1 stuff bits? + 2 transmit pause
+        self.assertEqual(tims_exp_us, int(timestamp_2nd, 16))
+
+        tx_frame = b"B1555555585555555555555555"
+        self.send(tx_frame + b"\r" + tx_frame + b"\r")
+        time.sleep(0.1)
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), 2 * (len(b"Z\r") + len(tx_frame) + len(b"TTTTTTTT\r")))
+
+        pos = 2 * len(b"Z\r") + len(tx_frame)
+        timestamp_1st = rx_data[pos : pos + 8]
+
+        pos = 2 * len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r") + len(tx_frame)
+        timestamp_2nd = rx_data[pos : pos + 8]
+
+        tims_exp_us = (int(timestamp_1st, 16) + (49 + 2) * 100 + 64 + 26 + 7) % 0x100000000   # 7 stuff bits? + 2 transmit pause
+        self.assertEqual(tims_exp_us, int(timestamp_2nd, 16))
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
     def test_tx_off_rx_on(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
