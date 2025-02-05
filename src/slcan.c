@@ -1003,7 +1003,7 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
                                         (err.last_err_code == FDCAN_PROTOCOL_ERROR_CRC ? "_CRC" : "SAME"))))))),
                                         (uint8_t)(err.tec),
                                         (uint8_t)(err.rec),
-                                        (uint8_t)(can_get_bus_load_ppm() >= 990000 ? 99 : can_get_bus_load_ppm() / 10000));
+                                        (uint8_t)(can_get_bus_load_ppm() >= 990000 ? 99 : (can_get_bus_load_ppm() / 50000) * 5));
                                         //(uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
