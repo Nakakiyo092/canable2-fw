@@ -188,9 +188,10 @@ HAL_StatusTypeDef can_enable(void)
         can_tx_queue.send = can_tx_queue.head;
         can_tx_queue.full = 0;
 
-        can_clear_cycle_time();
         can_update_bit_time_ns();
+        can_clear_cycle_time();
         can_bus_load_ppm = 0;
+        can_error_state.last_err_code = FDCAN_PROTOCOL_ERROR_NONE;
 
         led_turn_green(LED_OFF);
 
@@ -394,7 +395,7 @@ void can_process(void)
     can_error_state.err_pssv = (uint8_t)sts.ErrorPassive;
     can_error_state.tec = (uint8_t)cnt.TxErrorCnt;
     can_error_state.rec = (uint8_t)rx_err_cnt;
-    if (sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NO_CHANGE)
+    if (sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NONE && sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NO_CHANGE)
         can_error_state.last_err_code = sts.LastErrorCode;
 
     // Check for bus error flags
