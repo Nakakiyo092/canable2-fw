@@ -52,7 +52,7 @@ enum slcan_filter_mode
 // Private variables
 static char *hw_sw_ver = SLCAN_VERSION "\r";
 static char *hw_sw_ver_detail = "v: hardware=\"CANable2.0\", software=\"" GIT_VERSION "\", url=\"" GIT_REMOTE "\"\r";
-static char *can_info = "I20A0\r";
+static char *can_info = "I30A0\r";
 static char *can_info_detail = "i: protocol=\"ISO-CANFD\", clock_mhz=160, controller=\"STM32G431CB\"\r";
 static enum slcan_timestamp_mode slcan_timestamp_mode = 0;
 static uint16_t slcan_report_reg = 1;   // Default: no timestamp, no ESI, no Tx, but with Rx
