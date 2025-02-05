@@ -178,7 +178,8 @@ HAL_StatusTypeDef can_enable(void)
         HAL_FDCAN_ConfigGlobalFilter(&can_handle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
         HAL_FDCAN_ConfigTimestampCounter(&can_handle, FDCAN_TIMESTAMP_PRESC_1);
-        HAL_FDCAN_EnableTimestampCounter(&can_handle, FDCAN_TIMESTAMP_INTERNAL);
+        // Internal does not work to get time. External use TIM3 as source. See RM0440.
+        HAL_FDCAN_EnableTimestampCounter(&can_handle, FDCAN_TIMESTAMP_EXTERNAL);
 
         if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
 
@@ -352,9 +353,9 @@ void can_process(void)
     // Update bus load
     static uint32_t tick_last = 0;
     uint32_t tick_now = HAL_GetTick();
-    if (100 <= (uint32_t)(tick_now - tick_last))
+    if (100 <= (uint32_t)(tick_now - tick_last))    // Update in every 100ms interval
     {
-        uint32_t rate_us_per_ms = (uint32_t)time_cnt_message * can_bit_time_ns / 1000 / 100;   // MAX: 1000
+        uint32_t rate_us_per_ms = (uint32_t)time_cnt_message * can_bit_time_ns / 1000 / 100;   // MAX: 1000 @ 1Mbps
         can_bus_load_ppm = (can_bus_load_ppm * 7 + (uint32_t)CAN_BUS_LOAD_BUILDUP_PPM * rate_us_per_ms / 1000) >> 3;
         time_cnt_message = 0;
         tick_last = tick_now;
@@ -416,13 +417,13 @@ void can_process(void)
     }
 
     // Update cycle time
-    static uint16_t last_time_stamp_cnt = 0;
+    static uint32_t last_time_stamp_cnt = 0;
     uint16_t curr_time_stamp_cnt = HAL_FDCAN_GetTimestampCounter(&can_handle);
     uint32_t cycle_time_ns;
     if (last_time_stamp_cnt <= curr_time_stamp_cnt)
-        cycle_time_ns = ((uint32_t)curr_time_stamp_cnt - last_time_stamp_cnt) * can_bit_time_ns;
+        cycle_time_ns = ((uint32_t)curr_time_stamp_cnt - last_time_stamp_cnt) * 1000;
     else
-        cycle_time_ns = ((uint32_t)UINT16_MAX - last_time_stamp_cnt + 1 + curr_time_stamp_cnt) * can_bit_time_ns;
+        cycle_time_ns = ((uint32_t)UINT16_MAX - last_time_stamp_cnt + 1 + curr_time_stamp_cnt) * 1000;
 
     if (can_cycle_max_time_ns < cycle_time_ns)
         can_cycle_max_time_ns = cycle_time_ns;

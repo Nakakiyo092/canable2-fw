@@ -160,7 +160,9 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
 
     // Add time stamp
     static uint16_t slcan_last_timestamp_ms = 0;
+    static uint32_t slcan_last_timestamp_us = 0;
     static uint32_t slcan_last_time_ms = 0;
+    static uint16_t slcan_last_time_us = 0;
     if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
     {
         uint32_t current_time_ms = HAL_GetTick();
@@ -176,7 +178,44 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
         buf[msg_idx++] = ((slcan_last_timestamp_ms >> 4) & 0xF);
         buf[msg_idx++] = (slcan_last_timestamp_ms & 0xF);
     }
+    else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
+    {
+        uint32_t current_time_ms = HAL_GetTick();
+        uint16_t current_time_us = frame_header->RxTimestamp; // MAX 0xFFFF
+        uint32_t time_diff_ms;
+        uint64_t time_diff_us;
+        uint64_t n_comp;
+        uint32_t t_comp_us = ((uint64_t)UINT16_MAX + 1);                // MAX 0x10000
 
+        if (slcan_last_time_ms <= current_time_ms)
+            time_diff_ms = current_time_ms - slcan_last_time_ms;
+        else
+            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+
+        time_diff_us = (uint64_t)((uint16_t)(current_time_us - slcan_last_time_us));
+
+        // Compensate overflow of micro second counter
+        if (t_comp_us != 0)     // Proper bit time only (avoid zero-div)
+        {
+            n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);    // MAX 0xFFFFFFFF * 1000, 0xFFFF, 0x10000
+            n_comp = n_comp / t_comp_us;                            // MAX 0xFFFF * 1000 + ?
+            time_diff_us = time_diff_us + n_comp * t_comp_us;       // MAX 0xFFFF * 1000 * 0x10000
+        }
+
+        slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 0x100000000);
+        slcan_last_time_ms = current_time_ms;
+        slcan_last_time_us = current_time_us;
+
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 28) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 24) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 20) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 16) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 12) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 8) & 0xF);
+        buf[msg_idx++] = ((slcan_last_timestamp_us >> 4) & 0xF);
+        buf[msg_idx++] = (slcan_last_timestamp_us & 0xF);
+    }
+    
     // Add error state indicator
     // FD frame only. No ESI for a classical frame.
     if ((slcan_report_reg >> SLCAN_REPORT_ESI) & 1)
@@ -243,7 +282,7 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
     frame_header.ErrorStateIndicator = tx_event->ErrorStateIndicator;
     frame_header.BitRateSwitch = tx_event->BitRateSwitch;
     frame_header.FDFormat = tx_event->FDFormat;
-    //frame_header.RxTimestamp = tx_event->TxTimestamp;
+    frame_header.RxTimestamp = tx_event->TxTimestamp;
     int32_t msg_idx = slcan_parse_frame(&buf[1], &frame_header, frame_data);
 
     // Return string length
