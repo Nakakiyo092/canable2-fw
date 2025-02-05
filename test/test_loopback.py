@@ -502,7 +502,7 @@ class LoopbackTestCase(unittest.TestCase):
         pos = 2 * len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r") + len(tx_frame)
         timestamp_2nd = rx_data[pos : pos + 8]
 
-        tims_exp_us = (int(timestamp_1st, 16) + (111 + 1 + 2) * 100) % 0x100000000   # 1 stuff bits? + 2 transmit pause
+        tims_exp_us = (int(timestamp_1st, 16) + (47 + 8 * 8 + 1) * 100) % 0x100000000   # 1 stuff bits?
         self.assertEqual(tims_exp_us, int(timestamp_2nd, 16))
 
         tx_frame = b"B1555555585555555555555555"
@@ -517,7 +517,7 @@ class LoopbackTestCase(unittest.TestCase):
         pos = 2 * len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r") + len(tx_frame)
         timestamp_2nd = rx_data[pos : pos + 8]
 
-        tims_exp_us = (int(timestamp_1st, 16) + (49 + 2) * 100 + 64 + 26 + 7) % 0x100000000   # 7 stuff bits? + 2 transmit pause
+        tims_exp_us = (int(timestamp_1st, 16) + 49 * 100 + 8 * 8 + 26 + 7) % 0x100000000   # 7 stuff bits?
         self.assertEqual(tims_exp_us, int(timestamp_2nd, 16))
 
         self.send(b"C\r")
