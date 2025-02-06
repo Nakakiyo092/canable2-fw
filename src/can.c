@@ -395,6 +395,8 @@ void can_process(void)
     can_error_state.err_pssv = (uint8_t)sts.ErrorPassive;
     can_error_state.tec = (uint8_t)cnt.TxErrorCnt;
     can_error_state.rec = (uint8_t)rx_err_cnt;
+    if (sts.DataLastErrorCode != FDCAN_PROTOCOL_ERROR_NONE && sts.DataLastErrorCode != FDCAN_PROTOCOL_ERROR_NO_CHANGE)
+        can_error_state.last_err_code = sts.DataLastErrorCode;
     if (sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NONE && sts.LastErrorCode != FDCAN_PROTOCOL_ERROR_NO_CHANGE)
         can_error_state.last_err_code = sts.LastErrorCode;
 
