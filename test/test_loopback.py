@@ -30,9 +30,15 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"Z0\r")
+        self.send(b"z0001\r")
         self.receive()
-
+        self.send(b"W2\r")
+        self.receive()
+        self.send(b"M00000000\r")
+        self.receive()
+        self.send(b"mFFFFFFFF\r")
+        self.receive()
+        
 
     def tearDown(self):
         # close serial
@@ -216,7 +222,7 @@ class LoopbackTestCase(unittest.TestCase):
             self.assertEqual(self.receive(), b"\r")
 
 
-    def test_timestamp(self):
+    def test_timestamp_milli(self):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
 
@@ -295,7 +301,7 @@ class LoopbackTestCase(unittest.TestCase):
         #print("time: ", last_time_ms)
 
         sleep_time_ms = 30 * 1000
-        time.sleep(sleep_time_ms / 1000)
+        time.sleep(sleep_time_ms / 1000.0)
 
         self.send(b"t03F0\r")
         rx_data = self.receive()
@@ -312,28 +318,501 @@ class LoopbackTestCase(unittest.TestCase):
         else:
             diff_time_ms = (60000 + crnt_time_ms) - last_time_ms
 
-        # Proving 2% accuracy. 400ms should be acceptable for USB latency.
+        # Proving 2% accuracy. 600ms should be acceptable for USB latency.
         self.assertLess(abs(sleep_time_ms - diff_time_ms), 600)
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
+
+
+    def test_timestamp_micro(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check timestamp off in CAN loopback mode
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check timestamp on in CAN loopback mode
+        self.send(b"Z2\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            rx_data = self.receive()
+            self.assertEqual(len(rx_data), len(b"z\r" + cmd + b"03F0TTTTTTTT\r"))
+            self.assertEqual(rx_data[:len(b"z\r" + cmd + b"03F0")], b"z\r" + cmd + b"03F0")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            rx_data = self.receive()
+            self.assertEqual(len(rx_data), len(b"Z\r" + cmd + b"0137FEC80TTTTTTTT\r"))
+            self.assertEqual(rx_data[:len(b"Z\r" + cmd + b"0137FEC80")], b"Z\r" + cmd + b"0137FEC80")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check timestamp off in CAN loopback mode
+        self.send(b"Z0\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check timestamp accuracy in CAN loopback mode
+        self.send(b"Z2\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t03F0\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"z\r" + b"t03F0TTTTTTTT\r"))
+        self.assertEqual(rx_data[:len(b"z\r" + b"t03F0")], b"z\r" + b"t03F0")
+
+        last_timestamp = rx_data[len(b"z\r" + b"t03F0"):len(b"z\r" + b"t03F0") + 8]
+        last_time_us = int(last_timestamp.decode(), 16)
+
+        #print("time: ", last_time_us)
+
+        sleep_time_us = 30 * 1000 * 1000
+        time.sleep(sleep_time_us / 1000.0 / 1000.0)
+
+        self.send(b"t03F0\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"z\r" + b"t03F0TTTTTTTT\r"))
+        self.assertEqual(rx_data[:len(b"z\r" + b"t03F0")], b"z\r" + b"t03F0")
+
+        crnt_timestamp = rx_data[len(b"z\r" + b"t03F0"):len(b"z\r" + b"t03F0") + 8]
+        crnt_time_us = int(crnt_timestamp.decode(), 16)
+
+        #print("time: ", crnt_time_us)
+
+        if crnt_time_us > last_time_us:
+            diff_time_us = crnt_time_us - last_time_us
+        else:
+            diff_time_us = (0x100000000 + crnt_time_us) - last_time_us
+
+        # Proving 2% accuracy. 600ms should be acceptable for USB latency.
+        self.assertLess(abs(sleep_time_us - diff_time_us), 600 * 1000)
+
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_timestamp_same_stamp(self):
+        #self.print_on = True
+
+        # check timestamp on in CAN loopback mode
+        self.send(b"z2003\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
+
+        self.send(b"t03F0\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"zt03F0TTTTTTTT\r" + b"t03F0TTTTTTTT\r"))
+
+        if rx_data[0] == b"z"[0]:
+            tx_timestamp = rx_data[len(b"zt03F0"):len(b"zt03F0") + 8]
+        else:
+            tx_timestamp = rx_data[len(b"t03F0TTTTTTTT\rzt03F0"):len(b"t03F0TTTTTTTT\rzt03F0") + 8]
+
+        if rx_data[0] == b"z"[0]:
+            rx_timestamp = rx_data[len(b"zt03F0TTTTTTTT\rt03F0"):len(b"zt03F0TTTTTTTT\rt03F0") + 8]
+        else:
+            rx_timestamp = rx_data[len(b"t03F0"):len(b"t03F0") + 8]
+
+        self.assertEqual(tx_timestamp, rx_timestamp)
+
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_timestamp_micro(self):
+        #self.print_on = True
+
+        # check timestamp on in CAN loopback mode
+        self.send(b"z2001\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"S0\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"Y1\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        tx_frame = b"t55585555555555555555"
+        self.send(tx_frame + b"\r" + tx_frame + b"\r")
+        time.sleep(0.1)
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), 2 * (len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r")))
+
+        pos = 2 * len(b"z\r") + len(tx_frame)
+        timestamp_1st = rx_data[pos : pos + 8]
+
+        pos = 2 * len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r") + len(tx_frame)
+        timestamp_2nd = rx_data[pos : pos + 8]
+
+        tims_exp_us = (int(timestamp_1st, 16) + (47 + 8 * 8 + 1) * 100) % 0x100000000   # 1 stuff bits?
+        self.assertEqual(tims_exp_us, int(timestamp_2nd, 16))
+
+        tx_frame = b"B1555555585555555555555555"
+        self.send(tx_frame + b"\r" + tx_frame + b"\r")
+        time.sleep(0.1)
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), 2 * (len(b"Z\r") + len(tx_frame) + len(b"TTTTTTTT\r")))
+
+        pos = 2 * len(b"Z\r") + len(tx_frame)
+        timestamp_1st = rx_data[pos : pos + 8]
+
+        pos = 2 * len(b"z\r") + len(tx_frame) + len(b"TTTTTTTT\r") + len(tx_frame)
+        timestamp_2nd = rx_data[pos : pos + 8]
+
+        tims_exp_us = (int(timestamp_1st, 16) + 49 * 100 + 8 * 8 + 26 + 7) % 0x100000000   # 7 stuff bits?
+        self.assertEqual(tims_exp_us, int(timestamp_2nd, 16))
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_tx_off_rx_on(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check tx event on in CAN loopback mode
+        self.send(b"z0001\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_tx_on_rx_off(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check tx event on in CAN loopback mode
+        self.send(b"z0002\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z" + cmd + b"03F0\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z" + cmd + b"0137FEC80\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_esi_on(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check tx event on in CAN loopback mode
+        self.send(b"z0013\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            if cmd == b"r" or cmd == b"t":
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"z" + cmd + b"03F0\r" + cmd + b"03F0\r"))
+                if rx_data[0] == b"z"[0]:
+                    self.assertEqual(rx_data, b"z" + cmd + b"03F0\r" + cmd + b"03F0\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"03F0\r" + b"z" + cmd + b"03F0\r")
+            else:
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"z" + cmd + b"03F00\r" + cmd + b"03F00\r"))
+                if rx_data[0] == b"z"[0]:
+                    self.assertEqual(rx_data, b"z" + cmd + b"03F00\r" + cmd + b"03F00\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"03F00\r" + b"z" + cmd + b"03F00\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            if cmd == b"R" or cmd == b"T":
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"Z" + cmd + b"0137FEC80\r" + cmd + b"0137FEC80\r"))
+                if rx_data[0] == b"Z"[0]:
+                    self.assertEqual(rx_data, b"Z" + cmd + b"0137FEC80\r" + cmd + b"0137FEC80\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"0137FEC80\r" + b"Z" + cmd + b"0137FEC80\r")
+            else:
+                rx_data = self.receive()
+                self.assertEqual(len(rx_data), len(b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r"))
+                if rx_data[0] == b"Z"[0]:
+                    self.assertEqual(rx_data, b"Z" + cmd + b"0137FEC800\r" + cmd + b"0137FEC800\r")
+                else:
+                    self.assertEqual(rx_data, cmd + b"0137FEC800\r" + b"Z" + cmd + b"0137FEC800\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_filter_basic(self):
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
+
+        # check pass all in CAN loopback mode
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+            self.send(cmd + b"7C00\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"7C00\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0000003F0\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0000003F0\r")
+            self.send(cmd + b"000007C00\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"000007C00\r")
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+            self.send(cmd + b"1EC801370\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"1EC801370\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check pass 0x03F in CAN loopback mode
+        self.send(b"M0000003F\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"mFFFFF800\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+            self.send(cmd + b"7C00\r")
+            self.assertEqual(self.receive(), b"z\r")
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0000003F0\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0000003F0\r")
+            self.send(cmd + b"000007C00\r")
+            self.assertEqual(self.receive(), b"Z\r")
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r")
+            self.send(cmd + b"1EC801370\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check pass 0x0137FEC8 in CAN loopback mode
+        self.send(b"M0137FEC8\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"mE0000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            #self.assertEqual(self.receive(), b"z\r")
+            self.receive()
+            self.send(cmd + b"7C00\r")
+            #self.assertEqual(self.receive(), b"z\r")
+            self.receive()
+
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0000003F0\r")
+            #self.assertEqual(self.receive(), b"Z\r")
+            self.receive()
+            self.send(cmd + b"000007C00\r")
+            #self.assertEqual(self.receive(), b"Z\r")
+            self.receive()
+            self.send(cmd + b"0137FEC80\r")
+            #self.assertEqual(self.receive(), b"Z\r")
+            self.receive()
+            self.send(cmd + b"1EC801370\r")
+            #self.assertEqual(self.receive(), b"Z\r" + cmd + b"1EC801370\r")
+            self.receive()
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
         
-        
+
+    def test_filter_every_bits(self):
+        # receive std
+        self.send(b"M80000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"m00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r" + b"t0000\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T000000000\r")
+        self.assertEqual(self.receive(), b"Z\r")
+        for idx in range(0, 29):
+            self.send(b"T" + (f'{(1 << idx):08X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # receive ext
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"m00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T000000000\r")
+        self.assertEqual(self.receive(), b"Z\r" + b"T000000000\r")
+        for idx in range(0, 29):
+            self.send(b"T" + (f'{(1 << idx):08X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # receive both
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"m80000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r" + b"t0000\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T000000000\r")
+        self.assertEqual(self.receive(), b"Z\r" + b"T000000000\r")
+        for idx in range(0, 29):
+            self.send(b"T" + (f'{(1 << idx):08X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check consistency
+        self.send(b"m80000000\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r" + b"t0000\r")
+        for idx in range(0, 11):
+            self.send(b"t" + (f'{(1 << idx):03X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"z\r")
+        self.send(b"T000000000\r")
+        self.assertEqual(self.receive(), b"Z\r" + b"T000000000\r")
+        for idx in range(0, 29):
+            self.send(b"T" + (f'{(1 << idx):08X}').encode() + b"0\r")
+            self.assertEqual(self.receive(), b"Z\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
     def test_can_rx_buffer(self):
         rx_data_exp = b""
         # check response in CAN loopback mode
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
-
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False       
 
         # the buffer can store as least 400 messages (10240 / 22)
         for i in range(0, 400):
@@ -346,37 +825,24 @@ class LoopbackTestCase(unittest.TestCase):
         rx_data = self.receive()
         self.assertEqual(rx_data, rx_data_exp)
 
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
         # check cycle time
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False       
+        #self.print_on = True
+        #self.send(b"?\r")
+        #self.receive()
+        #self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
 
     def test_can_tx_buffer(self):
+        #self.print_on = True
         rx_data_exp = b""
         # check response in CAN loopback mode
         self.send(b"S0\r")  # take ~10ms to send one frame
         self.assertEqual(self.receive(), b"\r")
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
-
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-
-        # check cycle time
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False       
 
         # the buffer can store as least 64 messages
         for i in range(0, 64):
@@ -390,15 +856,29 @@ class LoopbackTestCase(unittest.TestCase):
         rx_data = rx_data.replace(b"z\r", b"")
         self.assertEqual(rx_data, rx_data_exp)
 
-        # confirm no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
-        # check cycle time
-        self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        self.print_on = False       
+
+    def test_can_tx_event_buffer(self):
+        #self.print_on = True
+        rx_data_exp = b""
+        # check response in CAN loopback mode
+        self.send(b"z0002\r")  # no rx, tx event only
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # the buffer can store as least 400 messages (10240 / 22)
+        for i in range(0, 400):
+            tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
+            self.send(tx_data)
+            rx_data_exp += b"z" + tx_data
+            time.sleep(0.001)
+
+        # check all reply
+        rx_data = self.receive()
+        self.assertEqual(rx_data, rx_data_exp)
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

@@ -21,7 +21,9 @@ canable.read_until()
 print("port_closed ", canable.port)
 print("")
 
-data_write = b"V\r"
+data_write = b"v\r"
+#data_write = data_write + data_write
+#data_write = data_write + data_write
 
 tx_len = 0
 rx_len = 0
@@ -36,7 +38,7 @@ while True:
     if flag_tx:
         canable.write(data_write)
         tx_len += len(data_write)
-        tx_cnt += 1
+        tx_cnt += len(data_write) / 2
 
     data_read = canable.read_all()
     rx_len += len(data_read)

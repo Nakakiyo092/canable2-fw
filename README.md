@@ -16,37 +16,32 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `S6` - Set nominal bitrate to 500k
 - `S7` - Set nominal bitrate to 800k
 - `S8` - Set nominal bitrate to 1M
+- `sddxxyyzz` - Set nominal bitrate and bittiming
 - `Y0` - Set data bitrate to 500k
 - `Y1` - Set data bitrate to 1M
 - `Y2` - Set data bitrate to 2M (default)
 - `Y4` - Set data bitrate to 4M
 - `Y5` - Set data bitrate to 5M
 - `Y8` - Set data bitrate to 8M (If supported by the CAN tranceiver)
-- `rIIIL` - Transmit remote frame (Standard ID) [ID, length]
-- `RIIIIIIIIL` - Transmit remote frame (Extended ID) [ID, length]
-- `tIIILDD...` - Transmit data frame (Standard ID) [ID, length, data]
-- `TIIIIIIIILDD...` - Transmit data frame (Extended ID) [ID, length, data]
-- `dIIILDD...` - Transmit CAN FD standard ID (no BRS) [ID, length, data]
-- `DIIIIIIIILDD...` - Transmit CAN FD extended ID (no BRS) [ID, length, data]
-- `bIIILDD...` - Transmit CAN FD BRS standard ID [ID, length, data]
-- `BIIIIIIIILDD...` - Transmit CAN FD extended ID [ID, length, data]
+- `yddxxyyzz` - Set data bitrate and bittiming
+- `riiil` - Transmit remote frame (Standard ID) [ID, length]
+- `Riiiiiiiil` - Transmit remote frame (Extended ID) [ID, length]
+- `tiiildd...` - Transmit data frame (Standard ID) [ID, length, data]
+- `Tiiiiiiiildd...` - Transmit data frame (Extended ID) [ID, length, data]
+- `diiildd...` - Transmit CAN FD standard ID (no BRS) [ID, length, data]
+- `Diiiiiiiildd...` - Transmit CAN FD extended ID (no BRS) [ID, length, data]
+- `biiildd...` - Transmit CAN FD BRS standard ID [ID, length, data]
+- `Biiiiiiiildd...` - Transmit CAN FD BRS extended ID [ID, length, data]
 
-- `V` - Returns firmware version and remote path as a string
-- `N` - Returns or sets serial number 
-- `F` - Returns status flags
-- `Z` - Turn on or off time stamp
+- `V` and `v` - Returns firmware version and remote path as a string
+- `N` - Returns and sets serial number 
+- `I` and `i` - Returns CAN controller information
+- `Z` and `z` - Configure reporting mechanism including time stamp and Tx event
+- `M` and `m` - Configure CAN acceptance filter
+- `F` and `f` - Returns status flags and detailed status
 - `Q` - Turn on or off auto-startup feature
 
-Note: CANFD message lengths are as follows (expressed in hexadecimal):
-
-- `0-8`: Same as standard CAN
-- `9`: Length = 12
-- `A`: Length = 16
-- `B`: Length = 20
-- `C`: Length = 24
-- `D`: Length = 32
-- `E`: Length = 48
-- `F`: Length = 64
+Please find more information in the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
 
 Note: Channel configuration commands must be sent before opening the channel. The channel must be opened before transmitting frames.
 
@@ -57,11 +52,11 @@ is packaged for Windows, OS X, and Linux on
 [Launchpad](https://launchpad.net/gcc-arm-embedded/+download). Download for your
 system and add the `bin` folder to your PATH.
 
-Your Linux distribution may also have a prebuilt package for `arm-none-eabi-gcc`, check your distro's repositories to see if a build exists. Simply compile by running `make`.
+Your Linux distribution may also have a prebuilt package for `arm-none-eabi-gcc` or `gcc-arm-none-eabi`, check your distro's repositories to see if a build exists. Simply compile by running `make`.
 
 ## Flashing with the Bootloader
 
-Plug in your CANable2 while pressing down the BOOT button. The blue LED should be dimly illuminated. Next, type `make flash` and your CANable will be updated to the latest firwmare. Unplug/replug the device after moving the boot jumper back, and your CANable will be up and running.
+Plug in your CANable2 while boot pins are shorted with jumper. The blue LED should be dimly illuminated. Next, type `make flash` and your CANable will be updated to the latest firwmare. Unplug/replug the device after moving the boot jumper back, and your CANable2 will be up and running.
 
 ## License
 

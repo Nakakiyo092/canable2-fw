@@ -69,20 +69,36 @@ class SlcanTestCase(unittest.TestCase):
         return rx_data
 
 
-    def test_N_command(self):
+    def test_Q_command(self):
         self.print_on = True
-        # Check response to N
-        self.send(b"N\r")
-        rx_data = self.receive()
-        #self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
-        #self.assertEqual(rx_data[0], b"NA123\r"[0])
 
-        # Update serial number
-        self.send(b"NAB01\r")
-        time.sleep(0.1)         # Extra wait for flash update
+        # Timestamp
+        self.send(b"z1013\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # Check serial number after reset
+        # Filter
+        self.send(b"W2\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
+        self.assertEqual(self.receive(), b"\r")
+
+        # Open port
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # Mode
+        self.send(b"Q1\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # Close port
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check serial number after reset
 
 
 if __name__ == "__main__":

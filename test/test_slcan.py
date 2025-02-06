@@ -30,7 +30,13 @@ class SlcanTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"Z0\r")
+        self.send(b"z0001\r")
+        self.receive()
+        self.send(b"W2\r")
+        self.receive()
+        self.send(b"M00000000\r")
+        self.receive()
+        self.send(b"mFFFFFFFF\r")
         self.receive()
 
 
@@ -94,9 +100,36 @@ class SlcanTestCase(unittest.TestCase):
         # check response to V
         self.send(b"V\r")
         rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"V1013\r"))
+        self.assertEqual(len(rx_data), len(b"V1013\r"))
         self.assertEqual(rx_data[0], b"V1013\r"[0])
         self.send(b"V0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_v_command(self):
+        self.send(b"v\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"v:\r"))
+        self.assertEqual(rx_data[0], b"v:\r"[0])
+        self.send(b"v0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_I_command(self):
+        self.send(b"I\r")
+        rx_data = self.receive()
+        self.assertEqual(len(rx_data), len(b"I20A0\r"))
+        self.assertEqual(rx_data[0], b"I20A0\r"[0])
+        self.send(b"I0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_i_command(self):
+        self.send(b"i\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"i:\r"))
+        self.assertEqual(rx_data[0], b"i:\r"[0])
+        self.send(b"i0\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -107,6 +140,10 @@ class SlcanTestCase(unittest.TestCase):
         rx_data = self.receive()
         self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
         self.assertEqual(rx_data[0], b"NA123\r"[0])
+        self.send(b"NA123\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"N\r")
+        self.assertEqual(self.receive(), b"NA123\r")
         self.send(b"N0\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"NA12\r")
@@ -202,6 +239,45 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
 
 
+    def test_s_command(self):
+        # check response with CAN port closed
+        self.send(b"s10460908\r")
+        #self.send(b"s010046009008\r")  # extension for future use?
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"s10460908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"s10460908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # our of range
+        self.send(b"sFFFFFFFF\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # invalid format
+        self.send(b"s1046090\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s104609080\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s0G460908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
     def test_Y_command(self):
         # check response to Y with CAN port closed
         for idx in range(0, 10):
@@ -243,12 +319,50 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
 
 
+    def test_y_command(self):
+        # check response with CAN port closed
+        self.send(b"y021E0908\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"y021E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"y021E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # our of range
+        self.send(b"yFFFFFFFF\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # invalid format
+        self.send(b"y021E090\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y021E09080\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y0G1E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
     def test_Z_command(self):
         # check response to Z with CAN port closed
         for idx in range(0, 10):
             cmd = "Z" + str(idx) + "\r"
             self.send(cmd.encode())
-            if idx in (0, 1):
+            if idx in range(0, 3):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
@@ -284,6 +398,222 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
 
 
+    def test_z_command(self):
+        # check response with CAN port closed
+        for idx in range(0, 10):
+            cmd = "z" + str(idx) + "000\r"
+            self.send(cmd.encode())
+            if idx in range(0, 3):
+                self.assertEqual(self.receive(), b"\r")
+            else:
+                self.assertEqual(self.receive(), b"\a")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for idx in range(0, 10):
+            cmd = "z" + str(idx) + "000\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for idx in range(0, 10):
+            cmd = "z" + str(idx) + "000\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"z000\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"z00000\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_F_command(self):
+        # check response with CAN port closed
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"F\r")
+        self.assertEqual(self.receive(), b"F00\r")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"F0\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_W_command(self):
+        # check response with CAN port closed
+        for idx in range(0, 10):
+            cmd = "W" + str(idx) + "\r"
+            self.send(cmd.encode())
+            if idx == 2:
+                self.assertEqual(self.receive(), b"\r")
+            else:
+                self.assertEqual(self.receive(), b"\a")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for idx in range(0, 10):
+            cmd = "W" + str(idx) + "\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        for idx in range(0, 10):
+            cmd = "W" + str(idx) + "\r"
+            self.send(cmd.encode())
+            self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"W\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"W00\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_M_command(self):
+        # check response with CAN port closed
+        cmd = "M0000003F\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\r")
+        cmd = "M0137FEC8\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\r")
+        cmd = "MFFFFFFFF\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        cmd = "M0000003F\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+        cmd = "M0137FEC8\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        cmd = "M0000003F\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+        cmd = "M0137FEC8\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"M0000000\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"M000000000\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"M0000000G\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
+    def test_m_command(self):
+        # check response with CAN port closed
+        cmd = "m0000003F\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\r")
+        cmd = "m0137FEC8\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\r")
+        cmd = "mFFFFFFFF\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        cmd = "m0000003F\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+        cmd = "m0137FEC8\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        cmd = "m0000003F\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+        cmd = "m0137FEC8\r"
+        self.send(cmd.encode())
+        self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"m0000000\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"m000000000\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"m0000000G\r")
+        self.assertEqual(self.receive(), b"\a")
+
+
     def test_Q_command(self):
         # check response to Q with CAN port closed
         for idx in range(0, 10):
@@ -292,10 +622,10 @@ class SlcanTestCase(unittest.TestCase):
             self.assertEqual(self.receive(), b"\a")
 
         # check cycle time
-        self.print_on = True
+        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        self.print_on = False       
+        #self.print_on = False       
 
         # check response to Q in CAN normal mode
         self.send(b"O\r")
@@ -310,10 +640,10 @@ class SlcanTestCase(unittest.TestCase):
                 self.assertEqual(self.receive(), b"\a")
 
         # check cycle time
-        self.print_on = True
+        #self.print_on = True
         self.send(b"?\r")
         self.receive()
-        self.print_on = False       
+        #self.print_on = False       
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

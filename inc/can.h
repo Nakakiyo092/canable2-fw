@@ -37,6 +37,16 @@ enum can_bus_state
     ON_BUS
 };
 
+// Structure for CAN bus error state
+struct can_error_state
+{
+    uint8_t bus_off;
+    uint8_t err_pssv;
+    uint8_t tec;
+    uint8_t rec;
+    uint32_t last_err_code;
+};
+
 // Structure for CAN/FD bitrate configuration
 struct can_bitrate_cfg
 {
@@ -50,18 +60,38 @@ struct can_bitrate_cfg
 void can_init(void);
 HAL_StatusTypeDef can_enable(void);
 HAL_StatusTypeDef can_disable(void);
+HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data);
+void can_process(void);
+
+// Bit rate functions
 HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate);
 HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate);
 HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg);
 HAL_StatusTypeDef can_set_data_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg);
-HAL_StatusTypeDef can_set_mode(uint32_t mode);
-void can_set_autoretransmit(uint8_t autoretransmit);
-HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data);
-HAL_StatusTypeDef can_rx(FDCAN_RxHeaderTypeDef *rx_msg_header, uint8_t *rx_msg_data);
-void can_process(void);
-enum can_bus_state can_get_bus_state(void);
 struct can_bitrate_cfg can_get_bitrate_cfg(void);
 struct can_bitrate_cfg can_get_data_bitrate_cfg(void);
+
+// Filter functions
+HAL_StatusTypeDef can_set_filter_std(FunctionalState state, uint32_t code, uint32_t mask);
+HAL_StatusTypeDef can_set_filter_ext(FunctionalState state, uint32_t code, uint32_t mask);
+FunctionalState can_is_filter_std_enabled(void);
+FunctionalState can_is_filter_ext_enabled(void);
+uint32_t can_get_filter_std_code(void);
+uint32_t can_get_filter_std_mask(void);
+uint32_t can_get_filter_ext_code(void);
+uint32_t can_get_filter_ext_mask(void);
+
+// CAN mode and status
+HAL_StatusTypeDef can_set_mode(uint32_t mode);
+enum can_bus_state can_get_bus_state(void);
+struct can_error_state can_get_error_state(void);
+uint32_t can_get_bus_load_ppm(void);
+
+// Cycle time functions
+void can_clear_cycle_time(void);
+uint32_t can_get_cycle_ave_time_ns(void);
+uint32_t can_get_cycle_max_time_ns(void);
+
 FDCAN_HandleTypeDef *can_get_handle(void);
 
 #endif // _CAN_H
