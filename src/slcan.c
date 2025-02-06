@@ -44,7 +44,7 @@ enum slcan_filter_mode
     SLCAN_FILTER_INVALID
 };
 
-#define SLCAN_VERSION   "VL2K0"
+#define SLCAN_VERSION   "VL2K1"
 #define SLCAN_RET_OK    ((uint8_t *)"\x0D")
 #define SLCAN_RET_ERR   ((uint8_t *)"\x07")
 #define SLCAN_RET_LEN   (1)
