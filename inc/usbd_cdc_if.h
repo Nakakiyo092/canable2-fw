@@ -6,8 +6,6 @@
 extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 
 // Prototypes
-void cdc_transmit(uint8_t* buf, uint16_t len);
-void cdc_process(void);
-
+uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 #endif

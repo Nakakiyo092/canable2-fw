@@ -172,8 +172,8 @@ class ErrorTestCase(unittest.TestCase):
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # the buffer can store as least 400 messages (10240 / 24)
-        for i in range(0, 400):
+        # the buffer can store as least 180 messages (4096 / 24)
+        for i in range(0, 180):
             self.send(b"t03F80011223344556677\r")
             time.sleep(0.001)
 

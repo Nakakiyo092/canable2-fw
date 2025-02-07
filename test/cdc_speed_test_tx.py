@@ -23,6 +23,11 @@ print("")
 
 data_write = b"00112233445566778899AABBCCDDEEFF"
 data_write = b"B00000000F" + data_write + data_write + data_write + data_write + b"\r"
+data_write = data_write + data_write
+data_write = data_write + data_write
+data_write = data_write + data_write
+data_write = data_write + data_write
+data_write = data_write + data_write
 
 tx_len = 0
 rx_len = 0
@@ -37,7 +42,7 @@ while True:
     if flag_tx:
         canable.write(data_write)
         tx_len += len(data_write)
-        tx_cnt += 1
+        tx_cnt += int(len(data_write) / 139)
 
     data_read = canable.read_all()
     rx_len += len(data_read)

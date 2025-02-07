@@ -814,8 +814,8 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # the buffer can store as least 400 messages (10240 / 22)
-        for i in range(0, 400):
+        # the buffer can store as least 180 messages (4096 / 22)
+        for i in range(0, 180):
             tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
             self.send(tx_data)
             rx_data_exp += b"z\r" + tx_data
@@ -869,8 +869,8 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # the buffer can store as least 400 messages (10240 / 22)
-        for i in range(0, 400):
+        # the buffer can store as least 180 messages (4096 / 22)
+        for i in range(0, 180):
             tx_data = b"t03F8001122334455" + format(i, "04X").encode() + b"\r"
             self.send(tx_data)
             rx_data_exp += b"z" + tx_data

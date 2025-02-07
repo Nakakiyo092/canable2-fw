@@ -5,6 +5,7 @@
 #include <string.h>
 #include "stm32g4xx_hal.h"
 #include "usbd_cdc_if.h"
+#include "buffer.h"
 #include "can.h"
 #include "error.h"
 #include "led.h"
@@ -293,17 +294,16 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
 void slcan_parse_str(uint8_t *buf, uint8_t len)
 {
     // Set default header. All values overridden below as needed.
-    FDCAN_TxHeaderTypeDef frame_header =
-        {
-            .TxFrameType = FDCAN_DATA_FRAME,
-            .FDFormat = FDCAN_CLASSIC_CAN,                  // default to classic frame
-            .IdType = FDCAN_STANDARD_ID,                    // default to standard ID
-            .BitRateSwitch = FDCAN_BRS_OFF,                 // no bitrate switch
-            .ErrorStateIndicator = FDCAN_ESI_ACTIVE,        // error active
-            .TxEventFifoControl = FDCAN_STORE_TX_EVENTS,    // record tx events
-            .MessageMarker = 0,                             // ?
-        };
-    uint8_t frame_data[64] = {0};
+    FDCAN_TxHeaderTypeDef *frame_header = buf_get_can_dest_header();
+    uint8_t *frame_data = buf_get_can_dest_data();
+
+    frame_header->TxFrameType = FDCAN_DATA_FRAME;                // default to data frame
+    frame_header->FDFormat = FDCAN_CLASSIC_CAN;                  // default to classic frame
+    frame_header->IdType = FDCAN_STANDARD_ID;                    // default to standard ID
+    frame_header->BitRateSwitch = FDCAN_BRS_OFF;                 // no bitrate switch
+    frame_header->ErrorStateIndicator = FDCAN_ESI_ACTIVE;        // error active
+    frame_header->TxEventFifoControl = FDCAN_STORE_TX_EVENTS;    // record tx events
+    frame_header->MessageMarker = 0;                             // ?
 
     // Blink blue LED as slcan rx if bus closed
     if (can_get_bus_state() == BUS_CLOSED) led_blink_blue();
@@ -311,14 +311,14 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Reply OK to a blank command
     if (len == 0)
     {
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         return;
     }
 
     // Convert an incoming slcan command from ASCII to number (2nd character to end)
     if (slcan_convert_str_to_number(buf, len) != HAL_OK)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
@@ -389,9 +389,9 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Debug function
     case '?':
     {
-        char dbgstr[64] = {0};
+        char* dbgstr = (char*)buf_get_cdc_dest();
 
-        snprintf(dbgstr, 64, "?%02X-%02X-%01X-%04X%04X-%04X\r",
+        snprintf(dbgstr, SLCAN_MTU - 1, "?%02X-%02X-%01X-%04X%04X-%04X\r",
                                     (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
                                     (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
                                     (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
@@ -399,47 +399,47 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
                                     (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                     (uint16_t)(error_get_register()));
 
-        cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
+        buf_cdc_tx.msglen[buf_cdc_tx.head] += 23;
         can_clear_cycle_time();
         return;
     }
     // Transmit remote frame command
     case 'r':
-        frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
+        frame_header->TxFrameType = FDCAN_REMOTE_FRAME;
         break;
     case 'R':
-        frame_header.IdType = FDCAN_EXTENDED_ID;
-        frame_header.TxFrameType = FDCAN_REMOTE_FRAME;
+        frame_header->IdType = FDCAN_EXTENDED_ID;
+        frame_header->TxFrameType = FDCAN_REMOTE_FRAME;
         break;
 
     // Transmit data frame command
     case 'T':
-        frame_header.IdType = FDCAN_EXTENDED_ID;
+        frame_header->IdType = FDCAN_EXTENDED_ID;
         break;
     case 't':
         break;
 
     // CANFD transmit - no BRS
     case 'd':
-        frame_header.FDFormat = FDCAN_FD_CAN;
+        frame_header->FDFormat = FDCAN_FD_CAN;
         break;
-        // frame_header.BitRateSwitch = FDCAN_BRS_ON
+        // frame_header->BitRateSwitch = FDCAN_BRS_ON
     case 'D':
-        frame_header.FDFormat = FDCAN_FD_CAN;
-        frame_header.IdType = FDCAN_EXTENDED_ID;
+        frame_header->FDFormat = FDCAN_FD_CAN;
+        frame_header->IdType = FDCAN_EXTENDED_ID;
         // Transmit CANFD frame
         break;
 
     // CANFD transmit - with BRS
     case 'b':
-        frame_header.FDFormat = FDCAN_FD_CAN;
-        frame_header.BitRateSwitch = FDCAN_BRS_ON;
+        frame_header->FDFormat = FDCAN_FD_CAN;
+        frame_header->BitRateSwitch = FDCAN_BRS_ON;
         break;
         // Fallthrough
     case 'B':
-        frame_header.FDFormat = FDCAN_FD_CAN;
-        frame_header.BitRateSwitch = FDCAN_BRS_ON;
-        frame_header.IdType = FDCAN_EXTENDED_ID;
+        frame_header->FDFormat = FDCAN_FD_CAN;
+        frame_header->BitRateSwitch = FDCAN_BRS_ON;
+        frame_header->IdType = FDCAN_EXTENDED_ID;
         break;
         // Transmit CANFD frame
         break;
@@ -451,7 +451,7 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
 
     // Invalid command
     default:
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
@@ -459,31 +459,31 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     uint8_t parse_loc = 1;
 
     // Zero out identifier
-    frame_header.Identifier = 0;
+    frame_header->Identifier = 0;
 
     // Default to standard ID
     uint8_t id_len = SLCAN_STD_ID_LEN;
 
     // Update length if message is extended ID
-    if (frame_header.IdType == FDCAN_EXTENDED_ID)
+    if (frame_header->IdType == FDCAN_EXTENDED_ID)
         id_len = SLCAN_EXT_ID_LEN;
 
     // Iterate through ID bytes
     while (parse_loc <= id_len)
     {
-        frame_header.Identifier *= 16;
-        frame_header.Identifier += buf[parse_loc++];
+        frame_header->Identifier *= 16;
+        frame_header->Identifier += buf[parse_loc++];
     }
 
     // If CAN ID is too large
-    if (frame_header.IdType == FDCAN_STANDARD_ID && 0x7FF < frame_header.Identifier)
+    if (frame_header->IdType == FDCAN_STANDARD_ID && 0x7FF < frame_header->Identifier)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
-    else if (frame_header.IdType == FDCAN_EXTENDED_ID && 0x1FFFFFFF < frame_header.Identifier)
+    else if (frame_header->IdType == FDCAN_EXTENDED_ID && 0x1FFFFFFF < frame_header->Identifier)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }    
 
@@ -491,41 +491,41 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     uint8_t dlc_code_raw = buf[parse_loc++];
 
     // If dlc is too long for an FD frame
-    if (frame_header.FDFormat == FDCAN_FD_CAN && dlc_code_raw > 0xF)
+    if (frame_header->FDFormat == FDCAN_FD_CAN && dlc_code_raw > 0xF)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
     // If dlc is too long for an classical frame
-    if (frame_header.FDFormat == FDCAN_CLASSIC_CAN)
+    if (frame_header->FDFormat == FDCAN_CLASSIC_CAN)
     {
-        if (frame_header.TxFrameType == FDCAN_DATA_FRAME && dlc_code_raw > 0x8)
+        if (frame_header->TxFrameType == FDCAN_DATA_FRAME && dlc_code_raw > 0x8)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
-        else if  (frame_header.TxFrameType == FDCAN_REMOTE_FRAME && dlc_code_raw > 0xF)
+        else if  (frame_header->TxFrameType == FDCAN_REMOTE_FRAME && dlc_code_raw > 0xF)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
     }
 
     // Set TX frame DLC according to HAL
-    frame_header.DataLength = __std_dlc_code_to_hal_dlc_code(dlc_code_raw);
+    frame_header->DataLength = __std_dlc_code_to_hal_dlc_code(dlc_code_raw);
 
     // Calculate number of bytes we expect in the message
-    int8_t bytes_in_msg = hal_dlc_code_to_bytes(frame_header.DataLength);
+    int8_t bytes_in_msg = hal_dlc_code_to_bytes(frame_header->DataLength);
 
     if ((bytes_in_msg < 0) || (bytes_in_msg > 64))
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
     // Parse data
     // Data frame only. No data bytes for a remote frame.
-    if (frame_header.TxFrameType != FDCAN_REMOTE_FRAME)
+    if (frame_header->TxFrameType != FDCAN_REMOTE_FRAME)
     {
         // TODO: Guard against walking off the end of the string!
         for (uint8_t i = 0; i < bytes_in_msg; i++)
@@ -539,27 +539,27 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // parse_loc is always updated after a byte is parsed
     if (len != parse_loc)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
     // Transmit the message
-    if (can_tx(&frame_header, frame_data) == HAL_OK)
+    if (buf_enqueue_can_dest() == HAL_OK)
     {
         if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
         {
             // Send ACK (not neccessary if tx event is reported)
-            char repstr[64] = {0};
-            if (frame_header.IdType == FDCAN_EXTENDED_ID)
-                snprintf(repstr, 64, "Z\r");
+            char* repstr = (char*)buf_get_cdc_dest();
+            if (frame_header->IdType == FDCAN_EXTENDED_ID)
+                snprintf(repstr, SLCAN_MTU - 1, "Z\r");
             else
-                snprintf(repstr, 64, "z\r");
-            cdc_transmit((uint8_t *)repstr, strlen(repstr));
+                snprintf(repstr, SLCAN_MTU - 1, "z\r");
+            buf_cdc_tx.msglen[buf_cdc_tx.head] += 2;
         }
     }
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
@@ -594,7 +594,7 @@ void slcan_parse_str_open(uint8_t *buf, uint8_t len)
     // Check command length
     if (len != 1)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
@@ -606,7 +606,7 @@ void slcan_parse_str_open(uint8_t *buf, uint8_t len)
         // Mode default
         if (can_set_mode(FDCAN_MODE_NORMAL) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
     }
@@ -615,15 +615,15 @@ void slcan_parse_str_open(uint8_t *buf, uint8_t len)
         // Mode silent
         if (can_set_mode(FDCAN_MODE_BUS_MONITORING) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
     }
     // Open CAN port
     if (can_enable() != HAL_OK)
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
     else
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
 
     return;
 }
@@ -634,7 +634,7 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
     // Check command length
     if (len != 1)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
@@ -646,7 +646,7 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
     {
         if (can_set_mode(FDCAN_MODE_EXTERNAL_LOOPBACK) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
     }
@@ -654,15 +654,15 @@ void slcan_parse_str_loop(uint8_t *buf, uint8_t len)
     {
         if (can_set_mode(FDCAN_MODE_INTERNAL_LOOPBACK) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
     }
     // Open CAN port
     if (can_enable() != HAL_OK)
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
     else
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
 
     return;
 }
@@ -673,14 +673,14 @@ void slcan_parse_str_close(uint8_t *buf, uint8_t len)
     // Check command length
     if (len != 1)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
     // Close CAN port
     if (can_disable() == HAL_OK)
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
     else
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
 
     error_clear();
     can_clear_cycle_time();
@@ -696,7 +696,7 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
         // Check for valid length
         if (len != 2)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
         HAL_StatusTypeDef ret;
@@ -706,16 +706,16 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
             ret = can_set_data_bitrate(buf[1]);
 
         if (ret == HAL_OK)
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         else
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
     }
     else if (buf[0] == 's' || buf[0] == 'y')
     {
         // Check for valid length
         if (len != 9)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
 
@@ -732,9 +732,9 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
             ret = can_set_data_bitrate_cfg(bitrate_cfg);
 
         if (ret == HAL_OK)
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         else
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
     }
     return;
 }
@@ -750,12 +750,12 @@ void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
             // Check for valid command
             if (len != 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
             {
-                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
 
             slcan_timestamp_mode = buf[1];
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             return;
         }
         else if (buf[0] == 'z')
@@ -763,20 +763,20 @@ void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
             // Check for valid command
             if (len != 5 || SLCAN_TIMESTAMP_INVALID <= buf[1])
             {
-                cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+                buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
 
             slcan_timestamp_mode = buf[1];
             slcan_report_reg = (buf[3] << 4) + buf[4];
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             return;
         }
     }
     // This command is only active if the CAN channel is closed.
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 }
@@ -790,24 +790,24 @@ void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len)
         // Check for valid command
         if (len != 2 || SLCAN_FILTER_INVALID <= buf[1])
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
 
         // Check if the filter mode is supported
         if (buf[1] != SLCAN_FILTER_SIMPLE_ID_MODE)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
 
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         return;
     }
     // Command can only be sent if CAN232 is initiated but not open.
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 }
@@ -822,7 +822,7 @@ void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
         // Check for valid command
         if (len != 9)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
 
@@ -846,21 +846,21 @@ void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
         // Mask definition, SLCAN: 0 -> Enable, STM32: 1 -> Enable
         if (can_set_filter_std(state_std, slcan_filter_code & 0x7FF, (~slcan_filter_mask) & 0x7FF) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
         if (can_set_filter_ext(state_ext, slcan_filter_code & 0x1FFFFFFF, (~slcan_filter_mask) & 0x1FFFFFFF) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         return;
     }
     // This command is only active if the CAN channel is initiated and not opened.
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 }
@@ -875,7 +875,7 @@ void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
         // Check for valid command
         if (len != 9)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
 
@@ -899,21 +899,21 @@ void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
         // Mask definition, SLCAN: 0 -> Enable, STM32: 1 -> Enable
         if (can_set_filter_std(state_std, slcan_filter_code & 0x7FF, (~slcan_filter_mask) & 0x7FF) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
         if (can_set_filter_ext(state_ext, slcan_filter_code & 0x1FFFFFFF, (~slcan_filter_mask) & 0x1FFFFFFF) != HAL_OK)
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
-        cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         return;
     }
     // This command is only active if the CAN channel is initiated and not opened.
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 }
@@ -924,14 +924,14 @@ void slcan_parse_str_version(uint8_t *buf, uint8_t len)
     // Check command length
     if (len != 1)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
     if (buf[0] == 'V')
-        cdc_transmit((uint8_t *)hw_sw_ver, strlen(hw_sw_ver));
+        buf_cdc_transmit((uint8_t *)hw_sw_ver, strlen(hw_sw_ver));
     else if (buf[0] == 'v')
-        cdc_transmit((uint8_t *)hw_sw_ver_detail, strlen(hw_sw_ver_detail));
+        buf_cdc_transmit((uint8_t *)hw_sw_ver_detail, strlen(hw_sw_ver_detail));
 
     return;
 }
@@ -942,14 +942,14 @@ void slcan_parse_str_can_info(uint8_t *buf, uint8_t len)
     // Check command length
     if (len != 1)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
     if (buf[0] == 'I')
-        cdc_transmit((uint8_t *)can_info, strlen(can_info));
+        buf_cdc_transmit((uint8_t *)can_info, strlen(can_info));
     else if (buf[0] == 'i')
-        cdc_transmit((uint8_t *)can_info_detail, strlen(can_info_detail));
+        buf_cdc_transmit((uint8_t *)can_info_detail, strlen(can_info_detail));
 
     return;
 }
@@ -961,15 +961,15 @@ void slcan_parse_str_number(uint8_t *buf, uint8_t len)
     {
         // Report serial number
         uint16_t serial;
-        char numstr[64] = {0};
+        char* numstr = (char*)buf_get_cdc_dest();
         if (nvm_get_serial_number(&serial) == HAL_OK)
         {
-            snprintf(numstr, 64, "N%04X\r", serial);
-            cdc_transmit((uint8_t *)numstr, strlen(numstr));
+            snprintf(numstr, SLCAN_MTU - 1, "N%04X\r", serial);
+            buf_cdc_tx.msglen[buf_cdc_tx.head] += 6;
         }
         else
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         }
         return;
     }
@@ -978,14 +978,14 @@ void slcan_parse_str_number(uint8_t *buf, uint8_t len)
         // Set serial number
         uint16_t serial = ((uint16_t)buf[1] << 12) + ((uint16_t)buf[2] << 8) + ((uint16_t)buf[3] << 4) + buf[4];
         if (nvm_update_serial_number(serial) == HAL_OK)
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
         else
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 }
@@ -996,7 +996,7 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
     // Check command length
     if (len != 1)
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 
@@ -1018,20 +1018,20 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
             status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
             status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
 
-            char stsstr[64] = {0};
-            snprintf(stsstr, 64, "F%02X\r", status);
-            cdc_transmit((uint8_t *)stsstr, strlen(stsstr));
+            char* stsstr = (char*)buf_get_cdc_dest();
+            snprintf(stsstr, SLCAN_MTU - 1, "F%02X\r", status);
+            buf_cdc_tx.msglen[buf_cdc_tx.head] += 4;
 
             // This command also clear the RED Error LED.
             error_clear();
         }
         else if (buf[0] == 'f')
         {
-            char dbgstr[128] = {0};
+            char* stsstr = (char*)buf_get_cdc_dest();
 
             struct can_error_state err = can_get_error_state();
 
-            snprintf(dbgstr, 128, "f: node_sts=%s, last_err_code=%s, err_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
+            snprintf(stsstr, SLCAN_MTU - 1, "f: node_sts=%s, last_err_code=%s, err_cnt_tx_rx=[0x%02X, 0x%02X], est_bus_load_percent=%02d\r",
                                         (err.bus_off ? "BUS_OFF" : (err.err_pssv ? "ER_PSSV" : "ER_ACTV")),
                                         (err.last_err_code == FDCAN_PROTOCOL_ERROR_NONE ? "NONE" : 
                                         (err.last_err_code == FDCAN_PROTOCOL_ERROR_STUFF ? "STUF" : 
@@ -1048,13 +1048,13 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
                                         //(uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
                                         //(uint8_t)((sts.BusOff << 2) + (sts.ErrorPassive << 1) + sts.Warning),
 
-            cdc_transmit((uint8_t *)dbgstr, strlen(dbgstr));
+            buf_cdc_tx.msglen[buf_cdc_tx.head] += 93;
         }
     }
     // This command is only active if the CAN channel is open.
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
     }
     return;
 }
@@ -1068,21 +1068,21 @@ void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
         // Check for valid command
         if (len != 2 || SLCAN_AUTO_STARTUP_INVALID <= buf[1])
         {
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
             return;
         }
 
         if (nvm_update_startup_cfg(buf[1]) != HAL_OK)
-            cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         else
-            cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
+            buf_cdc_transmit(SLCAN_RET_OK, SLCAN_RET_LEN);
             
         return;
     }
     // Command works only when CAN channel is open.
     else
     {
-        cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        buf_cdc_transmit(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
     }
 }

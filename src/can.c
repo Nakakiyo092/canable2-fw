@@ -4,15 +4,12 @@
 
 #include "stm32g4xx_hal.h"
 #include "usbd_cdc_if.h"
+#include "buffer.h"
 #include "can.h"
 #include "error.h"
 #include "led.h"
 #include "slcan.h"
 #include "system.h"
-
-// CAN transmit buffering
-#define TXQUEUE_LEN                     64  // Number of buffers allocated TODO decrease to 32 or less?
-#define TXQUEUE_DATALEN                 64  // CAN DLC length of data buffers. Must be 64 for canfd.
 
 // Bit number for each frame type with zero data length
 #define CAN_BIT_NBR_WOD_CBFF            47
@@ -26,17 +23,6 @@
 #define CAN_TIME_CNT_MAX_REWIND         360         /* Max cycle ~120ms X 3 times margin. should be < MIN_BIT_NBR * 9 */
 #define CAN_BUS_LOAD_BUILDUP_PPM        1125000     /* Compensate stuff bits and round down in laod calc */
 
-// Cirbuf structure for CAN TX frames
-struct can_tx_buf
-{
-    uint8_t data[TXQUEUE_LEN][TXQUEUE_DATALEN]; // Data buffer
-    FDCAN_TxHeaderTypeDef header[TXQUEUE_LEN];  // Header buffer
-    uint16_t head;                              // Head pointer
-    uint16_t send;                              // Send pointer
-    uint16_t tail;                              // Tail pointer
-    uint8_t full;                               // Set this when we are full, clear when the tail moves one.
-};
-
 // Private variables
 static FDCAN_HandleTypeDef can_handle;
 static FDCAN_FilterTypeDef can_std_filter;
@@ -46,7 +32,6 @@ static FDCAN_FilterTypeDef can_ext_pass_all;
 static enum can_bus_state can_bus_state;
 static struct can_error_state can_error_state = {0};
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
-static struct can_tx_buf can_tx_queue = {0};
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 static uint32_t can_cycle_max_time_ns = 0;
@@ -115,7 +100,7 @@ void can_init(void)
     can_ext_pass_all.FilterID2 = 0x00000000;
 
     // Reset the queue
-    memset(&can_tx_queue, 0, sizeof(can_tx_queue));
+    //memset(&can_tx_queue, 0, sizeof(can_tx_queue));
 
     // default to 125 kbit/s & 2Mbit/s
     can_set_bitrate(CAN_BITRATE_125K);
@@ -183,10 +168,7 @@ HAL_StatusTypeDef can_enable(void)
 
         if (HAL_FDCAN_Start(&can_handle) != HAL_OK) return HAL_ERROR;
 
-        // Clear the tx buffer
-        can_tx_queue.tail = can_tx_queue.head;
-        can_tx_queue.send = can_tx_queue.head;
-        can_tx_queue.full = 0;
+        buf_clear_can_buffer();
 
         can_update_bit_time_ns();
         can_clear_cycle_time();
@@ -214,10 +196,7 @@ HAL_StatusTypeDef can_disable(void)
         __HAL_RCC_FDCAN_FORCE_RESET();
         __HAL_RCC_FDCAN_RELEASE_RESET();
 
-        // Clear the tx buffer
-        can_tx_queue.tail = can_tx_queue.head;
-        can_tx_queue.send = can_tx_queue.head;
-        can_tx_queue.full = 0;
+        buf_clear_can_buffer();
 
         led_turn_green(LED_ON);
 
@@ -226,46 +205,6 @@ HAL_StatusTypeDef can_disable(void)
         return HAL_OK;
     }
     return HAL_ERROR;
-}
-
-// Send a message on the CAN bus.
-HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
-{
-    if (can_bus_state == BUS_OPENED && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING && !can_error_state.bus_off)
-    {
-        // If the queue is full
-        if (can_tx_queue.full)
-        {
-            error_assert(ERR_FULLBUF_CANTX);
-            return HAL_ERROR;
-        }
-
-        // Convert length to bytes
-        uint32_t len = hal_dlc_code_to_bytes(tx_msg_header->DataLength);
-
-        // Don't overrun buffer element max length
-        if (len > TXQUEUE_DATALEN)
-            return HAL_ERROR;
-
-        // Save the header to the circular buffer
-        can_tx_queue.header[can_tx_queue.head] = *tx_msg_header;
-
-        // Copy the data to the circular buffer
-        for (uint8_t i = 0; i < len; i++)
-        {
-            can_tx_queue.data[can_tx_queue.head][i] = tx_msg_data[i];
-        }
-
-        // Increment the head pointer
-        can_tx_queue.head = (can_tx_queue.head + 1) % TXQUEUE_LEN;
-        if (can_tx_queue.head == can_tx_queue.tail) can_tx_queue.full = 1;
-    }
-    else
-    {
-        return HAL_ERROR;
-    }
-
-    return HAL_OK;
 }
 
 // Process data from CAN tx/rx circular buffers
@@ -277,37 +216,11 @@ void can_process(void)
     FDCAN_RxHeaderTypeDef rx_msg_header;
     uint8_t rx_msg_data[64] = {0};
 
-    // Process tx frames
-    while ((can_tx_queue.send != can_tx_queue.head || can_tx_queue.full) && (HAL_FDCAN_GetTxFifoFreeLevel(&can_handle) > 0))
-    {
-        HAL_StatusTypeDef status;
-
-        // Transmit can frame
-        status = HAL_FDCAN_AddMessageToTxFifoQ(&can_handle, &can_tx_queue.header[can_tx_queue.send], can_tx_queue.data[can_tx_queue.send]);
-        can_tx_queue.send = (can_tx_queue.send + 1) % TXQUEUE_LEN;
-
-        // This drops the packet if it fails (no retry). Failure is unlikely
-        // since we check if there is a TX mailbox free.
-        if (status != HAL_OK)
-        {
-            error_assert(ERR_CAN_TXFAIL);
-        }
-    }
-
     // If message transmitted on bus, parse the frame
     if (HAL_FDCAN_GetTxEvent(&can_handle, &tx_event) == HAL_OK)
     {
-        uint8_t msg_buf[SLCAN_MTU];
-        int32_t msg_len = slcan_parse_tx_event((uint8_t *)&msg_buf, &tx_event, can_tx_queue.data[can_tx_queue.tail]);
-
-        can_tx_queue.tail = (can_tx_queue.tail + 1) % TXQUEUE_LEN;
-        can_tx_queue.full = 0;
-
-        // Transmit message via USB-CDC
-        if (msg_len > 0)
-        {
-            cdc_transmit(msg_buf, msg_len);
-        }
+        int32_t len = slcan_parse_tx_event(buf_get_cdc_dest(), &tx_event, buf_dequeue_can_tx_data());
+        buf_cdc_tx.msglen[buf_cdc_tx.head] += len;
 
         if (tx_event.TxTimestamp != last_frame_time_cnt)    // Don't count same frame.
         {
@@ -321,14 +234,8 @@ void can_process(void)
     // Message has been accepted, pull it from the buffer
     if (HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, &rx_msg_header, rx_msg_data) == HAL_OK)
     {
-        uint8_t msg_buf[SLCAN_MTU];
-        int32_t msg_len = slcan_parse_rx_frame((uint8_t *)&msg_buf, &rx_msg_header, rx_msg_data);
-
-        // Transmit message via USB-CDC
-        if (msg_len > 0)
-        {
-            cdc_transmit(msg_buf, msg_len);
-        }
+        int32_t len = slcan_parse_rx_frame(buf_get_cdc_dest(), &rx_msg_header, rx_msg_data);
+        buf_cdc_tx.msglen[buf_cdc_tx.head] += len;
 
         if (rx_msg_header.RxTimestamp != last_frame_time_cnt)   // Don't count same frame.
         {
@@ -711,6 +618,18 @@ enum can_bus_state can_get_bus_state(void)
 struct can_error_state can_get_error_state(void)
 {
     return can_error_state;
+}
+
+FunctionalState can_is_tx_enabled(void)
+{
+    if (can_bus_state == BUS_CLOSED)
+        return DISABLE;
+    else if (can_handle.Init.Mode == FDCAN_MODE_BUS_MONITORING)
+        return DISABLE;
+    else if (can_error_state.bus_off)
+        return DISABLE;
+    else
+        return ENABLE;
 }
 
 // Return CAN bus load in ppm

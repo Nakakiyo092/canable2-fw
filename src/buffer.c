@@ -1,0 +1,210 @@
+//
+// buffer: manage buffer
+//
+
+#include "usbd_cdc_if.h"
+#include "buffer.h"
+#include "error.h"
+#include "slcan.h"
+#include "system.h"
+
+// Cirbuf structure for CAN TX frames
+struct buf_can_tx
+{
+    FDCAN_TxHeaderTypeDef header[BUF_CAN_TXQUEUE_LEN];  // Header buffer
+    uint8_t data[BUF_CAN_TXQUEUE_LEN][CAN_MAX_DATALEN]; // Data buffer
+    uint16_t head;                              // Head pointer
+    uint16_t send;                              // Send pointer
+    uint16_t tail;                              // Tail pointer
+    uint8_t full;                               // Set this when we are full, clear when the tail moves one.
+};
+
+// Public variables
+volatile struct buf_cdc_tx buf_cdc_tx = {0};
+volatile struct buf_cdc_rx buf_cdc_rx = {0};
+
+// Private variables
+static struct buf_can_tx buf_can_tx = {0};
+static uint8_t slcan_str[SLCAN_MTU];
+static uint8_t slcan_str_index = 0;
+
+// Private prototypes
+
+// Initializes
+void buf_init(void)
+{
+    buf_cdc_rx.head = 0;
+    buf_cdc_rx.tail = 0;
+    buf_cdc_rx.full = 0;
+
+    buf_cdc_tx.head = 1;
+    buf_cdc_tx.msglen[buf_cdc_tx.head] = 0;
+    buf_cdc_tx.tail = 0;
+    buf_cdc_tx.msglen[buf_cdc_tx.tail] = 0;
+
+    buf_can_tx.head = 0;
+    buf_can_tx.send = 0;
+    buf_can_tx.tail = 0;
+    buf_can_tx.full = 0;
+}
+
+// Process
+void buf_process(void)
+{
+    // Process cdc receive buffer
+    system_irq_disable();
+    uint32_t tmp_head = buf_cdc_rx.head;
+    uint8_t tmp_full = buf_cdc_rx.full;
+    system_irq_enable();
+    if (buf_cdc_rx.tail != tmp_head || tmp_full)
+    {
+        //  Process one whole buffer
+        for (uint32_t i = 0; i < buf_cdc_rx.msglen[buf_cdc_rx.tail]; i++)
+	    {
+            if (buf_cdc_rx.data[buf_cdc_rx.tail][i] == '\r')
+            {
+                slcan_parse_str(slcan_str, slcan_str_index);
+                slcan_str_index = 0;
+            }
+            else
+            {
+                // Check for overflow of buffer
+                if (slcan_str_index >= SLCAN_MTU)
+                {
+                    // TODO: Return here and discard this CDC buffer?
+                    slcan_str_index = 0;
+                }
+
+                slcan_str[slcan_str_index++] = buf_cdc_rx.data[buf_cdc_rx.tail][i];
+            }
+        }
+
+        // Move on to next buffer
+        system_irq_disable();
+        buf_cdc_rx.tail = (buf_cdc_rx.tail + 1) % BUF_NUM_USB_RX_BUFS;
+        buf_cdc_rx.full = 0;
+        system_irq_enable();
+    }
+
+    // Process cdc transmit buffer
+    uint32_t new_head = (buf_cdc_tx.head + 1UL) % BUF_NUM_USB_TX_BUFS;
+    if (new_head != buf_cdc_tx.tail)
+    {
+        if (0 < buf_cdc_tx.msglen[buf_cdc_tx.head])
+        {
+            buf_cdc_tx.head = new_head;
+            buf_cdc_tx.msglen[new_head] = 0;
+        }
+    }
+    system_irq_disable();
+    uint32_t new_tail = (buf_cdc_tx.tail + 1UL) % BUF_NUM_USB_TX_BUFS;
+    if (new_tail != buf_cdc_tx.head)
+    {
+        if (CDC_Transmit_FS((uint8_t *)buf_cdc_tx.data[new_tail], buf_cdc_tx.msglen[new_tail]) == USBD_OK)
+        {
+            buf_cdc_tx.tail = new_tail;
+        }
+    }
+    system_irq_enable();
+
+
+    // Process can transmit buffer
+    while ((buf_can_tx.send != buf_can_tx.head || buf_can_tx.full) && (HAL_FDCAN_GetTxFifoFreeLevel(can_get_handle()) > 0))
+    {
+        HAL_StatusTypeDef status;
+
+        // Transmit can frame
+        status = HAL_FDCAN_AddMessageToTxFifoQ(can_get_handle(), 
+                                               &buf_can_tx.header[buf_can_tx.send], 
+                                               buf_can_tx.data[buf_can_tx.send]);
+
+        buf_can_tx.send = (buf_can_tx.send + 1) % BUF_CAN_TXQUEUE_LEN;
+
+        // This drops the packet if it fails (no retry). Failure is unlikely
+        // since we check if there is a TX mailbox free.
+        if (status != HAL_OK)
+        {
+            error_assert(ERR_CAN_TXFAIL);
+        }
+    }
+}
+
+// Enqueue data for transmission over USB CDC to host (slow)
+void buf_cdc_transmit(uint8_t* buf, uint16_t len)
+{
+    if (BUF_CDC_TX_BUF_SIZE - len < buf_cdc_tx.msglen[buf_cdc_tx.head])
+    {
+        error_assert(ERR_FULLBUF_USBTX);    // The data does not fit in the buffer
+    }
+    else
+    {
+        // Copy data
+        for (uint32_t i = 0; i < len; i++)
+        {
+            buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]] = buf[i];
+            buf_cdc_tx.msglen[buf_cdc_tx.head]++;
+        }
+    }
+}
+
+// Send a message on the CAN bus.
+HAL_StatusTypeDef buf_enqueue_can_dest(void)
+{
+    if (can_is_tx_enabled() == ENABLE)
+    {
+        // If the queue is full
+        if (buf_can_tx.full)
+        {
+            error_assert(ERR_FULLBUF_CANTX);
+            return HAL_ERROR;
+        }
+
+        // Increment the head pointer
+        buf_can_tx.head = (buf_can_tx.head + 1) % BUF_CAN_TXQUEUE_LEN;
+        if (buf_can_tx.head == buf_can_tx.tail) buf_can_tx.full = 1;
+    }
+    else
+    {
+        return HAL_ERROR;
+    }
+
+    return HAL_OK;
+}
+
+uint8_t *buf_get_cdc_dest(void)
+{
+    if (BUF_CDC_TX_BUF_SIZE - SLCAN_MTU < buf_cdc_tx.msglen[buf_cdc_tx.head])
+    {
+        error_assert(ERR_FULLBUF_USBTX);        // The data will not fit in the buffer
+        buf_cdc_tx.msglen[buf_cdc_tx.head] = 0; // Empty the buffer to make space for incoming data
+    }
+
+    return (uint8_t *)&buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]];
+}
+
+uint8_t *buf_dequeue_can_tx_data(void)
+{
+    uint32_t tmp_tail = buf_can_tx.tail;
+
+    buf_can_tx.tail = (buf_can_tx.tail + 1) % BUF_CAN_TXQUEUE_LEN;
+    buf_can_tx.full = 0;
+
+    return buf_can_tx.data[tmp_tail];
+}
+
+FDCAN_TxHeaderTypeDef *buf_get_can_dest_header(void)
+{
+    return &buf_can_tx.header[buf_can_tx.head];
+}
+
+uint8_t *buf_get_can_dest_data(void)
+{
+    return buf_can_tx.data[buf_can_tx.head];
+}
+
+void buf_clear_can_buffer(void)
+{
+    buf_can_tx.tail = buf_can_tx.head;
+    buf_can_tx.send = buf_can_tx.head;
+    buf_can_tx.full = 0;
+}
