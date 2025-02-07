@@ -121,13 +121,13 @@ void can_init(void)
     can_set_bitrate(CAN_BITRATE_125K);
     can_set_data_bitrate(CAN_DATA_BITRATE_2M);
     can_handle.Instance = FDCAN1;
-    can_bus_state = OFF_BUS;
+    can_bus_state = BUS_CLOSED;
 }
 
 // Start the CAN peripheral
 HAL_StatusTypeDef can_enable(void)
 {
-    if (can_bus_state == OFF_BUS)
+    if (can_bus_state == BUS_CLOSED)
     {
         // Reset error counter etc.
         __HAL_RCC_FDCAN_FORCE_RESET();
@@ -195,7 +195,7 @@ HAL_StatusTypeDef can_enable(void)
 
         led_turn_green(LED_OFF);
 
-        can_bus_state = ON_BUS;
+        can_bus_state = BUS_OPENED;
 
         return HAL_OK;
     }
@@ -205,7 +205,7 @@ HAL_StatusTypeDef can_enable(void)
 // Disable the CAN peripheral and go off-bus
 HAL_StatusTypeDef can_disable(void)
 {
-    if (can_bus_state == ON_BUS)
+    if (can_bus_state == BUS_OPENED)
     {
         HAL_FDCAN_Stop(&can_handle);
         HAL_FDCAN_DeInit(&can_handle);
@@ -221,7 +221,7 @@ HAL_StatusTypeDef can_disable(void)
 
         led_turn_green(LED_ON);
 
-        can_bus_state = OFF_BUS;
+        can_bus_state = BUS_CLOSED;
 
         return HAL_OK;
     }
@@ -231,7 +231,7 @@ HAL_StatusTypeDef can_disable(void)
 // Send a message on the CAN bus.
 HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data)
 {
-    if (can_bus_state == ON_BUS && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING)
+    if (can_bus_state == BUS_OPENED && can_handle.Init.Mode != FDCAN_MODE_BUS_MONITORING && !can_error_state.bus_off)
     {
         // If the queue is full
         if (can_tx_queue.full)
@@ -435,8 +435,8 @@ void can_process(void)
     
     last_time_stamp_cnt = curr_time_stamp_cnt;
 
-    // Green LED on during bus off
-    if (can_bus_state == OFF_BUS)
+    // Green LED on during bus closed
+    if (can_bus_state == BUS_CLOSED)
         led_turn_green(LED_ON);
 
 }
@@ -444,7 +444,7 @@ void can_process(void)
 // Set the nominal bitrate of the CAN peripheral
 HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
 {
-    if (can_bus_state == ON_BUS)
+    if (can_bus_state == BUS_OPENED)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
@@ -497,7 +497,7 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
 // Set the data bitrate of the CAN peripheral
 HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
 {
-    if (can_bus_state == ON_BUS)
+    if (can_bus_state == BUS_OPENED)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
@@ -544,7 +544,7 @@ HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
 // Set the nominal bitrate configuration of the CAN peripheral
 HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 {
-    if (can_bus_state == ON_BUS)
+    if (can_bus_state == BUS_OPENED)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
@@ -563,7 +563,7 @@ HAL_StatusTypeDef can_set_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 // Set the data bitrate configuration of the CAN peripheral
 HAL_StatusTypeDef can_set_data_bitrate_cfg(struct can_bitrate_cfg bitrate_cfg)
 {
-    if (can_bus_state == ON_BUS)
+    if (can_bus_state == BUS_OPENED)
     {
         // cannot set bitrate while on bus
         return HAL_ERROR;
@@ -596,7 +596,7 @@ HAL_StatusTypeDef can_set_filter_std(FunctionalState state, uint32_t code, uint3
 {
     HAL_StatusTypeDef ret = HAL_OK;
     
-    if (can_bus_state == ON_BUS) return HAL_ERROR;
+    if (can_bus_state == BUS_OPENED) return HAL_ERROR;
     if (state == ENABLE)
         can_std_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     else if (state == DISABLE)
@@ -622,7 +622,7 @@ HAL_StatusTypeDef can_set_filter_ext(FunctionalState state, uint32_t code, uint3
 {
     HAL_StatusTypeDef ret = HAL_OK;
     
-    if (can_bus_state == ON_BUS) return HAL_ERROR;
+    if (can_bus_state == BUS_OPENED) return HAL_ERROR;
     if (state == ENABLE)
         can_ext_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     else if (state == DISABLE)
@@ -692,7 +692,7 @@ uint32_t can_get_filter_ext_mask(void)
 // external: FDCAN_MODE_EXTERNAL_LOOPBACK
 HAL_StatusTypeDef can_set_mode(uint32_t mode)
 {
-    if (can_bus_state == ON_BUS)
+    if (can_bus_state == BUS_OPENED)
     {
         // cannot set silent mode while on bus
         return HAL_ERROR;

@@ -305,8 +305,8 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         };
     uint8_t frame_data[64] = {0};
 
-    // Blink blue LED as slcan rx if off bus
-    if (can_get_bus_state() == OFF_BUS) led_blink_blue();
+    // Blink blue LED as slcan rx if bus closed
+    if (can_get_bus_state() == BUS_CLOSED) led_blink_blue();
 
     // Reply OK to a blank command
     if (len == 0)
@@ -743,7 +743,7 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
 void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
 {
     // Set report mode
-    if (can_get_bus_state() == OFF_BUS)
+    if (can_get_bus_state() == BUS_CLOSED)
     {
         if (buf[0] == 'Z')
         {
@@ -785,7 +785,7 @@ void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
 void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len)
 {
     // Set filter mode
-    if (can_get_bus_state() == OFF_BUS)
+    if (can_get_bus_state() == BUS_CLOSED)
     {
         // Check for valid command
         if (len != 2 || SLCAN_FILTER_INVALID <= buf[1])
@@ -817,7 +817,7 @@ void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len)
 void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
 {
     // Set filter code
-    if (can_get_bus_state() == OFF_BUS)
+    if (can_get_bus_state() == BUS_CLOSED)
     {
         // Check for valid command
         if (len != 9)
@@ -870,7 +870,7 @@ void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len)
 void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
 {
     // Set filter code
-    if (can_get_bus_state() == OFF_BUS)
+    if (can_get_bus_state() == BUS_CLOSED)
     {
         // Check for valid command
         if (len != 9)
@@ -1001,7 +1001,7 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
     }
 
     // Return the status flags
-    if (can_get_bus_state() == ON_BUS)
+    if (can_get_bus_state() == BUS_OPENED)
     {
         if (buf[0] == 'F')
         {
@@ -1063,7 +1063,7 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
 void slcan_parse_str_auto_startup(uint8_t *buf, uint8_t len)
 {
     // Set auto startup mode
-    if (can_get_bus_state() == ON_BUS)
+    if (can_get_bus_state() == BUS_OPENED)
     {
         // Check for valid command
         if (len != 2 || SLCAN_AUTO_STARTUP_INVALID <= buf[1])

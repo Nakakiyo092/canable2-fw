@@ -33,8 +33,8 @@ enum can_data_bitrate
 // Bus state
 enum can_bus_state
 {
-    OFF_BUS,
-    ON_BUS
+    BUS_CLOSED,
+    BUS_OPENED
 };
 
 // Structure for CAN bus error state
