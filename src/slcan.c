@@ -389,17 +389,43 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Debug function
     case '?':
     {
-        char* dbgstr = (char*)buf_get_cdc_dest();
+        //char* dbgstr = (char*)buf_get_cdc_dest();
+        //snprintf(dbgstr, SLCAN_MTU - 1, "?%02X-%02X-%01X-%04X%04X-%04X\r",
+        //                            (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
+        //                            (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
+        //                            (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
+        //                            (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
+        //                            (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
+        //                            (uint16_t)(error_get_register()));
+        //buf_cdc_tx.msglen[buf_cdc_tx.head] += 23;
 
-        snprintf(dbgstr, SLCAN_MTU - 1, "?%02X-%02X-%01X-%04X%04X-%04X\r",
-                                    (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000),
-                                    (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000),
-                                    (uint8_t)(HAL_FDCAN_GetState(can_get_handle())),
-                                    (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) >> 16),
-                                    (uint16_t)(HAL_FDCAN_GetError(can_get_handle()) & 0xFFFF),
-                                    (uint16_t)(error_get_register()));
+        uint8_t cycle_ave = (uint8_t)(can_get_cycle_ave_time_ns() >= 255000 ? 255 : can_get_cycle_ave_time_ns() / 1000);
+        uint8_t cycle_max = (uint8_t)(can_get_cycle_max_time_ns() >= 255000 ? 255 : can_get_cycle_max_time_ns() / 1000);
+        //char *dbgstr = "?XX-XX\r";
+        uint8_t dbgstr[7];
+        dbgstr[0] = '?';
+        dbgstr[1] = cycle_ave >> 4;
+        dbgstr[2] = cycle_ave & 0xF;
+        for (uint8_t j = 1; j <= 2; j++)
+        {
+            if (dbgstr[j] < 0xA)
+                dbgstr[j] += 0x30;
+            else
+                dbgstr[j] += 0x37;
+        }
+        dbgstr[3] = '-';
+        dbgstr[4] = cycle_max >> 4;
+        dbgstr[5] = cycle_max & 0xF;
+        for (uint8_t j = 4; j <= 5; j++)
+        {
+            if (dbgstr[j] < 0xA)
+                dbgstr[j] += 0x30;
+            else
+                dbgstr[j] += 0x37;
+        }
+        dbgstr[6] = '\r';
+        buf_cdc_transmit((uint8_t *)dbgstr, 7);
 
-        buf_cdc_tx.msglen[buf_cdc_tx.head] += 23;
         can_clear_cycle_time();
         return;
     }
