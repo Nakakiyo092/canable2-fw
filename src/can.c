@@ -220,7 +220,7 @@ void can_process(void)
     if (HAL_FDCAN_GetTxEvent(&can_handle, &tx_event) == HAL_OK)
     {
         int32_t len = slcan_parse_tx_event(buf_get_cdc_dest(), &tx_event, buf_dequeue_can_tx_data());
-        buf_cdc_tx.msglen[buf_cdc_tx.head] += len;
+        buf_comit_cdc_dest(len);
 
         if (tx_event.TxTimestamp != last_frame_time_cnt)    // Don't count same frame.
         {
@@ -235,7 +235,7 @@ void can_process(void)
     if (HAL_FDCAN_GetRxMessage(&can_handle, FDCAN_RX_FIFO0, &rx_msg_header, rx_msg_data) == HAL_OK)
     {
         int32_t len = slcan_parse_rx_frame(buf_get_cdc_dest(), &rx_msg_header, rx_msg_data);
-        buf_cdc_tx.msglen[buf_cdc_tx.head] += len;
+        buf_comit_cdc_dest(len);
 
         if (rx_msg_header.RxTimestamp != last_frame_time_cnt)   // Don't count same frame.
         {

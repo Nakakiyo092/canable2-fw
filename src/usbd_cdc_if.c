@@ -138,7 +138,7 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
     // Check for overflow!
-    uint32_t new_head = (buf_cdc_rx.head + 1) % BUF_NUM_USB_RX_BUFS;
+    uint32_t new_head = (buf_cdc_rx.head + 1) % BUF_CDC_RX_NUM_BUFS;
     if (new_head == buf_cdc_rx.tail)
     {
         error_assert(ERR_FULLBUF_USBRX);

@@ -79,12 +79,12 @@ void buf_process(void)
 
         // Move on to next buffer
         system_irq_disable();
-        buf_cdc_rx.tail = (buf_cdc_rx.tail + 1) % BUF_NUM_USB_RX_BUFS;
+        buf_cdc_rx.tail = (buf_cdc_rx.tail + 1) % BUF_CDC_RX_NUM_BUFS;
         system_irq_enable();
     }
 
     // Process cdc transmit buffer
-    uint32_t new_head = (buf_cdc_tx.head + 1UL) % BUF_NUM_USB_TX_BUFS;
+    uint32_t new_head = (buf_cdc_tx.head + 1UL) % BUF_CDC_TX_NUM_BUFS;
     if (new_head != buf_cdc_tx.tail)
     {
         if (0 < buf_cdc_tx.msglen[buf_cdc_tx.head])
@@ -94,7 +94,7 @@ void buf_process(void)
         }
     }
     system_irq_disable();
-    uint32_t new_tail = (buf_cdc_tx.tail + 1UL) % BUF_NUM_USB_TX_BUFS;
+    uint32_t new_tail = (buf_cdc_tx.tail + 1UL) % BUF_CDC_TX_NUM_BUFS;
     if (new_tail != buf_cdc_tx.head)
     {
         if (CDC_Transmit_FS((uint8_t *)buf_cdc_tx.data[new_tail], buf_cdc_tx.msglen[new_tail]) == USBD_OK)
@@ -126,8 +126,8 @@ void buf_process(void)
     }
 }
 
-// Enqueue data for transmission over USB CDC to host (slow)
-void buf_cdc_transmit(uint8_t* buf, uint16_t len)
+// Enqueue data for transmission over USB CDC to host (copy and comit = slow)
+void buf_enqueue_cdc(uint8_t* buf, uint16_t len)
 {
     if (BUF_CDC_TX_BUF_SIZE - len < buf_cdc_tx.msglen[buf_cdc_tx.head])
     {
@@ -144,8 +144,44 @@ void buf_cdc_transmit(uint8_t* buf, uint16_t len)
     }
 }
 
-// Send a message on the CAN bus.
-HAL_StatusTypeDef buf_enqueue_can_dest(void)
+// Get destination pointer of cdc buffer (Start position of write access)
+uint8_t *buf_get_cdc_dest(void)
+{
+    if (BUF_CDC_TX_BUF_SIZE - SLCAN_MTU < buf_cdc_tx.msglen[buf_cdc_tx.head])
+    {
+        error_assert(ERR_FULLBUF_USBTX);        // The data will not fit in the buffer
+        return NULL;
+    }
+
+    return (uint8_t *)&buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]];
+}
+
+// Send the data bytes in destination area over USB CDC to host
+void buf_comit_cdc_dest(uint32_t len)
+{
+    buf_cdc_tx.msglen[buf_cdc_tx.head] += len;
+}
+
+// Get destination pointer of can tx frame header
+FDCAN_TxHeaderTypeDef *buf_get_can_dest_header(void)
+{
+    if (buf_can_tx.full)
+        return NULL;
+    else
+        return &buf_can_tx.header[buf_can_tx.head];
+}
+
+// Get destination pointer of can tx frame data bytes
+uint8_t *buf_get_can_dest_data(void)
+{
+    if (buf_can_tx.full)
+        return NULL;
+    else
+        return buf_can_tx.data[buf_can_tx.head];
+}
+
+// Send the message in destination slot on the CAN bus.
+HAL_StatusTypeDef buf_comit_can_dest(void)
 {
     if (can_is_tx_enabled() == ENABLE)
     {
@@ -168,17 +204,7 @@ HAL_StatusTypeDef buf_enqueue_can_dest(void)
     return HAL_OK;
 }
 
-uint8_t *buf_get_cdc_dest(void)
-{
-    if (BUF_CDC_TX_BUF_SIZE - SLCAN_MTU < buf_cdc_tx.msglen[buf_cdc_tx.head])
-    {
-        error_assert(ERR_FULLBUF_USBTX);        // The data will not fit in the buffer
-        return NULL;
-    }
-
-    return (uint8_t *)&buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]];
-}
-
+// Dequeue data bytes from the can tx buffer (Delete one frame)
 uint8_t *buf_dequeue_can_tx_data(void)
 {
     uint32_t tmp_tail = buf_can_tx.tail;
@@ -189,22 +215,7 @@ uint8_t *buf_dequeue_can_tx_data(void)
     return buf_can_tx.data[tmp_tail];
 }
 
-FDCAN_TxHeaderTypeDef *buf_get_can_dest_header(void)
-{
-    if (buf_can_tx.full)
-        return NULL;
-    else
-        return &buf_can_tx.header[buf_can_tx.head];
-}
-
-uint8_t *buf_get_can_dest_data(void)
-{
-    if (buf_can_tx.full)
-        return NULL;
-    else
-        return buf_can_tx.data[buf_can_tx.head];
-}
-
+// Clear can tx buffer
 void buf_clear_can_buffer(void)
 {
     buf_can_tx.tail = buf_can_tx.head;
