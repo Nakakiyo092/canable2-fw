@@ -35,7 +35,6 @@ void buf_init(void)
 {
     buf_cdc_rx.head = 0;
     buf_cdc_rx.tail = 0;
-    buf_cdc_rx.full = 0;
 
     buf_cdc_tx.head = 1;
     buf_cdc_tx.msglen[buf_cdc_tx.head] = 0;
@@ -54,9 +53,8 @@ void buf_process(void)
     // Process cdc receive buffer
     system_irq_disable();
     uint32_t tmp_head = buf_cdc_rx.head;
-    uint8_t tmp_full = buf_cdc_rx.full;
     system_irq_enable();
-    if (buf_cdc_rx.tail != tmp_head || tmp_full)
+    if (buf_cdc_rx.tail != tmp_head)
     {
         //  Process one whole buffer
         for (uint32_t i = 0; i < buf_cdc_rx.msglen[buf_cdc_rx.tail]; i++)
@@ -82,7 +80,6 @@ void buf_process(void)
         // Move on to next buffer
         system_irq_disable();
         buf_cdc_rx.tail = (buf_cdc_rx.tail + 1) % BUF_NUM_USB_RX_BUFS;
-        buf_cdc_rx.full = 0;
         system_irq_enable();
     }
 
@@ -176,7 +173,7 @@ uint8_t *buf_get_cdc_dest(void)
     if (BUF_CDC_TX_BUF_SIZE - SLCAN_MTU < buf_cdc_tx.msglen[buf_cdc_tx.head])
     {
         error_assert(ERR_FULLBUF_USBTX);        // The data will not fit in the buffer
-        buf_cdc_tx.msglen[buf_cdc_tx.head] = 0; // Empty the buffer to make space for incoming data
+        return NULL;
     }
 
     return (uint8_t *)&buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]];
@@ -194,12 +191,18 @@ uint8_t *buf_dequeue_can_tx_data(void)
 
 FDCAN_TxHeaderTypeDef *buf_get_can_dest_header(void)
 {
-    return &buf_can_tx.header[buf_can_tx.head];
+    if (buf_can_tx.full)
+        return NULL;
+    else
+        return &buf_can_tx.header[buf_can_tx.head];
 }
 
 uint8_t *buf_get_can_dest_data(void)
 {
-    return buf_can_tx.data[buf_can_tx.head];
+    if (buf_can_tx.full)
+        return NULL;
+    else
+        return buf_can_tx.data[buf_can_tx.head];
 }
 
 void buf_clear_can_buffer(void)

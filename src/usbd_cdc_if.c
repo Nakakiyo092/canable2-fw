@@ -138,7 +138,8 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
     // Check for overflow!
-    if (buf_cdc_rx.full)
+    uint32_t new_head = (buf_cdc_rx.head + 1) % BUF_NUM_USB_RX_BUFS;
+    if (new_head == buf_cdc_rx.tail)
     {
         error_assert(ERR_FULLBUF_USBRX);
 
@@ -151,8 +152,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
     {
         // Save off length
         buf_cdc_rx.msglen[buf_cdc_rx.head] = *Len;
-        buf_cdc_rx.head = (buf_cdc_rx.head + 1) % BUF_NUM_USB_RX_BUFS;
-        if (buf_cdc_rx.head == buf_cdc_rx.tail) buf_cdc_rx.full = 1;
+        buf_cdc_rx.head = new_head;
 
         // Start listening on next buffer. Previous buffer will be processed in main loop.
         USBD_CDC_SetRxBuffer(&hUsbDeviceFS, (uint8_t *)buf_cdc_rx.data[buf_cdc_rx.head]);

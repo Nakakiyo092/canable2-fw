@@ -22,7 +22,6 @@ struct buf_cdc_rx
 	uint32_t msglen[BUF_NUM_USB_RX_BUFS];
 	uint32_t head;
 	uint32_t tail;
-	uint8_t full;
 };
 
 // Transmit buffering: triple buffers

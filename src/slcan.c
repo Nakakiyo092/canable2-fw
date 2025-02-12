@@ -257,6 +257,9 @@ int32_t slcan_parse_rx_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, 
     if (((slcan_report_reg >> SLCAN_REPORT_RX) & 1) == 0)
         return 0;
 
+    if (buf == NULL)
+        return 0;
+
     int32_t msg_idx = slcan_parse_frame(buf, frame_header, frame_data);
 
     // Return string length
@@ -268,6 +271,9 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
 {
     // Tx reporting not required
     if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
+        return 0;
+
+    if (buf == NULL)
         return 0;
 
     if (tx_event->IdType == FDCAN_STANDARD_ID)
@@ -293,18 +299,6 @@ int32_t slcan_parse_tx_event(uint8_t *buf, FDCAN_TxEventFifoTypeDef *tx_event, u
 // Parse an incoming slcan command from the USB CDC port
 void slcan_parse_str(uint8_t *buf, uint8_t len)
 {
-    // Set default header. All values overridden below as needed.
-    FDCAN_TxHeaderTypeDef *frame_header = buf_get_can_dest_header();
-    uint8_t *frame_data = buf_get_can_dest_data();
-
-    frame_header->TxFrameType = FDCAN_DATA_FRAME;                // default to data frame
-    frame_header->FDFormat = FDCAN_CLASSIC_CAN;                  // default to classic frame
-    frame_header->IdType = FDCAN_STANDARD_ID;                    // default to standard ID
-    frame_header->BitRateSwitch = FDCAN_BRS_OFF;                 // no bitrate switch
-    frame_header->ErrorStateIndicator = FDCAN_ESI_ACTIVE;        // error active
-    frame_header->TxEventFifoControl = FDCAN_STORE_TX_EVENTS;    // record tx events
-    frame_header->MessageMarker = 0;                             // ?
-
     // Blink blue LED as slcan rx if bus closed
     if (can_get_bus_state() == BUS_CLOSED) led_blink_blue();
 
@@ -429,6 +423,27 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
         can_clear_cycle_time();
         return;
     }
+    default:
+        break;
+    }
+
+    // Set default header. All values overridden below as needed.
+    FDCAN_TxHeaderTypeDef *frame_header = buf_get_can_dest_header();
+    uint8_t *frame_data = buf_get_can_dest_data();
+
+    if (frame_header == NULL || frame_data == NULL) return;
+
+    frame_header->TxFrameType = FDCAN_DATA_FRAME;                // default to data frame
+    frame_header->FDFormat = FDCAN_CLASSIC_CAN;                  // default to classic frame
+    frame_header->IdType = FDCAN_STANDARD_ID;                    // default to standard ID
+    frame_header->BitRateSwitch = FDCAN_BRS_OFF;                 // no bitrate switch
+    frame_header->ErrorStateIndicator = FDCAN_ESI_ACTIVE;        // error active
+    frame_header->TxEventFifoControl = FDCAN_STORE_TX_EVENTS;    // record tx events
+    frame_header->MessageMarker = 0;                             // ?
+
+    // Handle each incoming command (transmit)
+    switch (buf[0])
+    {
     // Transmit remote frame command
     case 'r':
         frame_header->TxFrameType = FDCAN_REMOTE_FRAME;
