@@ -164,18 +164,24 @@ void buf_comit_cdc_dest(uint32_t len)
 FDCAN_TxHeaderTypeDef *buf_get_can_dest_header(void)
 {
     if (buf_can_tx.full)
+    {
+        error_assert(ERR_FULLBUF_CANTX);
         return NULL;
-    else
-        return &buf_can_tx.header[buf_can_tx.head];
+    }
+
+    return &buf_can_tx.header[buf_can_tx.head];
 }
 
 // Get destination pointer of can tx frame data bytes
 uint8_t *buf_get_can_dest_data(void)
 {
     if (buf_can_tx.full)
+    {
+        error_assert(ERR_FULLBUF_CANTX);
         return NULL;
-    else
-        return buf_can_tx.data[buf_can_tx.head];
+    }
+
+    return buf_can_tx.data[buf_can_tx.head];
 }
 
 // Send the message in destination slot on the CAN bus.

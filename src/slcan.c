@@ -431,7 +431,11 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     FDCAN_TxHeaderTypeDef *frame_header = buf_get_can_dest_header();
     uint8_t *frame_data = buf_get_can_dest_data();
 
-    if (frame_header == NULL || frame_data == NULL) return;
+    if (frame_header == NULL || frame_data == NULL)
+    {
+        buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
 
     frame_header->TxFrameType = FDCAN_DATA_FRAME;                // default to data frame
     frame_header->FDFormat = FDCAN_CLASSIC_CAN;                  // default to classic frame
