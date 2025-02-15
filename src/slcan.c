@@ -798,6 +798,7 @@ void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
             }
 
             slcan_timestamp_mode = buf[1];
+            slcan_report_reg = 1;   // Default: no timestamp, no ESI, no Tx, but with Rx
             buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
             return;
         }

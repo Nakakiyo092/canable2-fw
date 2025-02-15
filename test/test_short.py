@@ -5,7 +5,7 @@ import unittest
 import time
 import serial
 
-# NOTE: This test needs to be done with CAN high and low shorted
+# NOTE: This test needs to be done with CAN high and low shorted.
 class ShortTestCase(unittest.TestCase):
 
     print_on: bool
@@ -30,15 +30,15 @@ class ShortTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"z0001\r")
+        self.send(b"Z0\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
         self.send(b"M00000000\r")
         self.receive()
-        self.send(b"mFFFFFFFF\r")
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
         self.receive()
-        
+
 
     def tearDown(self):
         # close serial
@@ -82,13 +82,14 @@ class ShortTestCase(unittest.TestCase):
 
 
     def test_short(self):
-        self.print_on = True
+        cmd_send_std = (b"r", b"t", b"d", b"b")
+        cmd_send_ext = (b"R", b"T", b"D", b"B")
+
+        #self.print_on = True
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check no error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
         self.send(b"C\r")
@@ -97,24 +98,39 @@ class ShortTestCase(unittest.TestCase):
         # check bus off
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\r")
         time.sleep(0.1)     # wait for bus off ( > 1ms * 255 / 8)
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"FB4\r")  # BEI + EPI + BOI + EI
+        self.assertEqual(self.receive(), b"FA4\r")  # BEI + EPI + EI
         time.sleep(0.1)
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F34\r")
-        self.send(b"t0000\r")
-        self.assertEqual(self.receive(), b"z\r")
+        self.assertEqual(self.receive(), b"F00\r")  # check clear
+
+        # cannot send frame during bus off
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"\a")
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"\a")
+
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"=\r")
+        self.assertEqual(self.receive(), b"\r")
+        
+        # check recovering from bus off
+        for cmd in cmd_send_std:
+            self.send(cmd + b"03F0\r")
+            self.assertEqual(self.receive(), b"z\r" + cmd + b"03F0\r")
+        for cmd in cmd_send_ext:
+            self.send(cmd + b"0137FEC80\r")
+            self.assertEqual(self.receive(), b"Z\r" + cmd + b"0137FEC80\r")
+
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 

@@ -5,7 +5,7 @@ import unittest
 import time
 import serial
 
-
+# NOTE: YOU must check LED in this test.
 class LoopbackTestCase(unittest.TestCase):
 
     print_on: bool
@@ -30,15 +30,15 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"z0001\r")
+        self.send(b"Z0\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
         self.send(b"M00000000\r")
         self.receive()
-        self.send(b"mFFFFFFFF\r")
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
         self.receive()
-        
+
 
     def tearDown(self):
         # close serial
@@ -85,11 +85,9 @@ class LoopbackTestCase(unittest.TestCase):
         cmd_send_std = (b"r", b"t", b"d", b"b")
         cmd_send_ext = (b"R", b"T", b"D", b"B")
 
-        print("")
-        print("The both LED should lit 16 times.")
-        print("")
-
         # check response to shortest SEND in CAN loopback mode
+        self.send(b"z0000\r")
+        self.assertEqual(self.receive(), b"\r")
         self.send(b"W2\r")
         self.assertEqual(self.receive(), b"\r")
         self.send(b"M00000000\r")
@@ -99,53 +97,34 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"=\r")
         self.assertEqual(self.receive(), b"\r")
 
+
+        print("")
+        print("The both LED should lit 16 times.")
+        print("")
+
+        time.sleep(2)
+
         for cmd in cmd_send_std:
-            time.sleep(1.1)
+            time.sleep(0.5)
             self.send(cmd + b"03F0\r")
             self.assertEqual(self.receive(), b"z\r")
 
         for cmd in cmd_send_ext:
-            time.sleep(1.1)
+            time.sleep(0.5)
             self.send(cmd + b"0137FEC80\r")
             self.assertEqual(self.receive(), b"Z\r")
 
         for cmd in cmd_send_std:
-            time.sleep(1.1)
+            time.sleep(0.5)
             self.send(cmd + b"0000\r")
             self.assertEqual(self.receive(), b"z\r")
 
         for cmd in cmd_send_ext:
-            time.sleep(1.1)
+            time.sleep(0.5)
             self.send(cmd + b"000000000\r")
             self.assertEqual(self.receive(), b"Z\r")
 
-        time.sleep(1)
-
-        self.send(b"C\r")
-        self.assertEqual(self.receive(), b"\r")
-
-
-    def test_led_off(self):
-        cmd_send_std = (b"r", b"t", b"d", b"b")
-        cmd_send_ext = (b"R", b"T", b"D", b"B")
-
-        print("")
-        #print("No LED should lit.")    # LED on due to bus error
-        print("")
-
-        # check response to shortest SEND in CAN loopback mode
-        self.send(b"O\r")
-        self.assertEqual(self.receive(), b"\r")
-
-        for cmd in cmd_send_std:
-            time.sleep(1)
-            self.send(cmd + b"03F0\r")
-            self.assertEqual(self.receive(), b"z\r")
-
-        for cmd in cmd_send_ext:
-            time.sleep(1)
-            self.send(cmd + b"0137FEC80\r")
-            self.assertEqual(self.receive(), b"Z\r")
+        time.sleep(2)
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")

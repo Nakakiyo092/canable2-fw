@@ -29,4 +29,37 @@ echo ""
 echo ""
 echo "Run test after reset"
 python3 test/test_reset_after.py
+echo ""
+echo ""
+echo "Fix CAN bus at dominant level then press enter..."
+read input
+echo ""
+echo ""
+echo "Run dominant test cases"
+python3 test/test_dominant.py
+echo ""
+echo ""
+echo "Short CAN high and low then press enter..."
+read input
+echo ""
+echo ""
+echo "Run short test cases"
+python3 test/test_short.py
+echo ""
+echo ""
+echo "Make ready to check LED then press enter..."
+read input
+echo ""
+echo ""
+echo "Run led test cases"
+python3 test/test_led.py
+
+# Restore default setup
+echo ""
+echo ""
+echo "Restore default setup"
+python3 test/tool_default_setup.py
+echo ""
+echo ""
+echo "Complete"
 

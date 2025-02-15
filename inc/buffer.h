@@ -13,7 +13,7 @@
 #define BUF_CDC_TX_BUF_SIZE 4096 // Set to 64 * 64 for max single packet size
 
 // CAN transmit buffering
-#define BUF_CAN_TXQUEUE_LEN 64   // Number of buffers allocated TODO decrease to 32 or less?
+#define BUF_CAN_TXQUEUE_LEN 64   // Number of buffers allocated
 
 // Receive buffering: circular buffer FIFO
 struct buf_cdc_rx

@@ -30,15 +30,15 @@ class LoopbackTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"z0001\r")
+        self.send(b"Z0\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
         self.send(b"M00000000\r")
         self.receive()
-        self.send(b"mFFFFFFFF\r")
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
         self.receive()
-        
+
 
     def tearDown(self):
         # close serial
@@ -94,11 +94,6 @@ class LoopbackTestCase(unittest.TestCase):
         self.send(b"mFFFFF800\r")
         self.assertEqual(self.receive(), b"\r")
 
-        #self.print_on = True
-        #self.send(b"?\r")
-        #self.receive()
-        #self.print_on = False       
-
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -107,11 +102,6 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
-
-        #self.print_on = True
-        #self.send(b"?\r")
-        #self.receive()
-        #elf.print_on = False       
 
 
 if __name__ == "__main__":
