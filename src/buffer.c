@@ -131,16 +131,14 @@ void buf_enqueue_cdc(uint8_t* buf, uint16_t len)
 {
     if (BUF_CDC_TX_BUF_SIZE - len < buf_cdc_tx.msglen[buf_cdc_tx.head])
     {
+        
         error_assert(ERR_FULLBUF_USBTX);    // The data does not fit in the buffer
     }
     else
     {
         // Copy data
-        for (uint32_t i = 0; i < len; i++)
-        {
-            buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]] = buf[i];
-            buf_cdc_tx.msglen[buf_cdc_tx.head]++;
-        }
+        memcpy((uint8_t *)&buf_cdc_tx.data[buf_cdc_tx.head][buf_cdc_tx.msglen[buf_cdc_tx.head]], buf, len);
+        buf_cdc_tx.msglen[buf_cdc_tx.head] += len;
     }
 }
 
