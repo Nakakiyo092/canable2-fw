@@ -211,7 +211,7 @@ HAL_StatusTypeDef can_disable(void)
 void can_process(void)
 {
     static uint16_t last_frame_time_cnt = 0;
-    static uint32_t time_cnt_message = 0;
+    static uint32_t bit_cnt_message = 0;
     FDCAN_TxEventFifoTypeDef tx_event;
     FDCAN_RxHeaderTypeDef rx_msg_header;
     uint8_t rx_msg_data[64] = {0};
@@ -224,7 +224,7 @@ void can_process(void)
 
         if (tx_event.TxTimestamp != last_frame_time_cnt)    // Don't count same frame.
         {
-            time_cnt_message += can_get_bit_number_in_tx_event(&tx_event);
+            bit_cnt_message += can_get_bit_number_in_tx_event(&tx_event);
             last_frame_time_cnt = tx_event.TxTimestamp;
         }
 
@@ -239,7 +239,7 @@ void can_process(void)
 
         if (rx_msg_header.RxTimestamp != last_frame_time_cnt)   // Don't count same frame.
         {
-            time_cnt_message += can_get_bit_number_in_rx_frame(&rx_msg_header);
+            bit_cnt_message += can_get_bit_number_in_rx_frame(&rx_msg_header);
             last_frame_time_cnt = rx_msg_header.RxTimestamp;
         }
 
@@ -251,7 +251,7 @@ void can_process(void)
     {
         if (rx_msg_header.RxTimestamp != last_frame_time_cnt)   // Don't count same frame.
         {
-            time_cnt_message += can_get_bit_number_in_rx_frame(&rx_msg_header);
+            bit_cnt_message += can_get_bit_number_in_rx_frame(&rx_msg_header);
             last_frame_time_cnt = rx_msg_header.RxTimestamp;
         }
 
@@ -263,9 +263,9 @@ void can_process(void)
     uint32_t tick_now = HAL_GetTick();
     if (100 <= (uint32_t)(tick_now - tick_last))    // Update in every 100ms interval
     {
-        uint32_t rate_us_per_ms = (uint32_t)time_cnt_message * can_bit_time_ns / 1000 / 100;   // MAX: 1000 @ 1Mbps
+        uint32_t rate_us_per_ms = (uint32_t)bit_cnt_message * can_bit_time_ns / 1000 / 100;   // MAX: 1000 @ 1Mbps
         can_bus_load_ppm = (can_bus_load_ppm * 7 + (uint32_t)CAN_BUS_LOAD_BUILDUP_PPM * rate_us_per_ms / 1000) >> 3;
-        time_cnt_message = 0;
+        bit_cnt_message = 0;
         tick_last = tick_now;
     }
 
