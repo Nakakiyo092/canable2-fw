@@ -26,7 +26,6 @@ data_write = data_write + data_write
 data_write = data_write + data_write
 data_write = data_write + data_write
 data_write = data_write + data_write
-data_write = data_write + data_write
 
 tx_len = 0
 rx_len = 0
@@ -53,8 +52,8 @@ while True:
     if ms > tick_1s and not flag_tx:
         tick_1s = ms + 1000
         
-        print('tx speed:', tx_len, 'Byte/s\t', tx_len / 1024, 'KiB/s')
-        print('rx speed:', rx_len, 'Byte/s\t', rx_len / 1024, 'KiB/s')
+        print('tx speed:', tx_len / 1000, 'kB/s\t', tx_len * 8 / 1000, 'kbits/s')
+        print('rx speed:', rx_len / 1000, 'kB/s\t', rx_len * 8 / 1000, 'kbits/s')
         print('message loss:', tx_cnt - rx_cnt, " / ", tx_cnt)
         print('')
         tx_len = 0
