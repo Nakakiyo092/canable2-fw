@@ -33,8 +33,8 @@ enum can_data_bitrate
 // Bus state
 enum can_bus_state
 {
-    OFF_BUS,
-    ON_BUS
+    BUS_CLOSED,
+    BUS_OPENED
 };
 
 // Structure for CAN bus error state
@@ -56,11 +56,13 @@ struct can_bitrate_cfg
     uint8_t sjw;
 };
 
+// CANFD parameter
+#define CAN_MAX_DATALEN                 64  // CAN maximum data length. Must be 64 for canfd.
+
 // Prototypes
 void can_init(void);
 HAL_StatusTypeDef can_enable(void);
 HAL_StatusTypeDef can_disable(void);
-HAL_StatusTypeDef can_tx(FDCAN_TxHeaderTypeDef *tx_msg_header, uint8_t *tx_msg_data);
 void can_process(void);
 
 // Bit rate functions
@@ -85,6 +87,7 @@ uint32_t can_get_filter_ext_mask(void);
 HAL_StatusTypeDef can_set_mode(uint32_t mode);
 enum can_bus_state can_get_bus_state(void);
 struct can_error_state can_get_error_state(void);
+FunctionalState can_is_tx_enabled(void);
 uint32_t can_get_bus_load_ppm(void);
 
 // Cycle time functions

@@ -30,14 +30,15 @@ class ErrorTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"z0001\r")
+        self.send(b"Z0\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
         self.send(b"M00000000\r")
         self.receive()
-        self.send(b"mFFFFFFFF\r")
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
         self.receive()
+
 
     def tearDown(self):
         # close serial
@@ -86,32 +87,24 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # check no error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\rt0000\r")
         time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-
-        # check error passive
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
+
+        # check error passive
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
         self.send(b"t0000\r")
         self.assertEqual(self.receive(), b"z\r")
         time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"FA4\r")  # BEI & EPI & EI
         self.send(b"F\r")
@@ -120,18 +113,16 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
 
-    def test_usb_tx_overflow(self):
+    def test_cdc_tx_overflow(self):
         # check response to shortest SEND in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
 
         # confirm no error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # send a lot of command without receiving data (depends on PC env.)
+        # send a lot of command without receiving data (amount depends on PC env.)
         for i in range(0, 400):
             self.send(b"v\r")
             time.sleep(0.001)
@@ -139,21 +130,11 @@ class ErrorTestCase(unittest.TestCase):
         # recieve all reply
         rx_data = self.receive()
 
-        # print reply
-        #rx_data = rx_data.replace(b"\r", b"[CR]\n")
-        #print(rx_data.decode())
-        
-        # TODO count reply
-
         # check error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F01\r")  # CAN Rx Full
+        self.assertEqual(self.receive(), b"F01\r")  # CAN Rx Full (because this overflow is caused typically by too many can frame)
 
         # check error clear
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
@@ -167,13 +148,11 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # confirm no error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # the buffer can store as least 400 messages (10240 / 24)
-        for i in range(0, 400):
+        # the buffer can store as least 180 messages (4096 / 24)
+        for i in range(0, 180):
             self.send(b"t03F80011223344556677\r")
             time.sleep(0.001)
 
@@ -182,12 +161,10 @@ class ErrorTestCase(unittest.TestCase):
         rx_data = self.receive()    # just to make sure
 
         # confirm no error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
-        # the buffer can not store 800 messages (depends on PC env.)
+        # the buffer can not store 800 messages (amount depends on PC env.)
         for i in range(0, 800):
             self.send(b"t03F80011223344556677\r")
             time.sleep(0.001)
@@ -197,8 +174,6 @@ class ErrorTestCase(unittest.TestCase):
         rx_data = self.receive()    # just to make sure
 
         # check error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F01\r")  # CAN Rx Full
 
@@ -216,8 +191,6 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\r")
 
         # confirm no error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
 
@@ -227,8 +200,6 @@ class ErrorTestCase(unittest.TestCase):
             self.assertEqual(self.receive(), b"z\r")
 
         # confirm no overflow
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"FA4\r")  # BEI & EPI & EI
 
@@ -238,8 +209,6 @@ class ErrorTestCase(unittest.TestCase):
             self.receive()
 
         # check error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F02\r")  # CAN Tx Full
 
@@ -249,8 +218,6 @@ class ErrorTestCase(unittest.TestCase):
             self.assertEqual(self.receive(), b"\a")
 
         # check error
-        self.send(b"?\r")
-        self.receive()
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F02\r")
 

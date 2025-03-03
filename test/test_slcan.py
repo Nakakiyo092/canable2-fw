@@ -30,13 +30,13 @@ class SlcanTestCase(unittest.TestCase):
         self.receive()
         self.send(b"Y2\r")
         self.receive()
-        self.send(b"z0001\r")
+        self.send(b"Z0\r")
         self.receive()
         self.send(b"W2\r")
         self.receive()
         self.send(b"M00000000\r")
         self.receive()
-        self.send(b"mFFFFFFFF\r")
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
         self.receive()
 
 
@@ -90,8 +90,7 @@ class SlcanTestCase(unittest.TestCase):
     def test_error_command(self):
         # check response to [BELL]
         self.send(b"\a")
-        self.assertEqual(self.receive(), b"")      # message incomplete without [CR]
-
+        self.assertEqual(self.receive(), b"")      # message is incomplete without [CR]
         self.send(b"\r")
         self.assertEqual(self.receive(), b"\a")
 
@@ -109,8 +108,8 @@ class SlcanTestCase(unittest.TestCase):
     def test_v_command(self):
         self.send(b"v\r")
         rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"v:\r"))
-        self.assertEqual(rx_data[0], b"v:\r"[0])
+        self.assertGreaterEqual(len(rx_data), len(b"v\r"))
+        self.assertEqual(rx_data[0], b"v\r"[0])
         self.send(b"v0\r")
         self.assertEqual(self.receive(), b"\a")
 
@@ -127,8 +126,8 @@ class SlcanTestCase(unittest.TestCase):
     def test_i_command(self):
         self.send(b"i\r")
         rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"i:\r"))
-        self.assertEqual(rx_data[0], b"i:\r"[0])
+        self.assertGreaterEqual(len(rx_data), len(b"i\r"))
+        self.assertEqual(rx_data[0], b"i\r"[0])
         self.send(b"i0\r")
         self.assertEqual(self.receive(), b"\a")
 
@@ -138,12 +137,10 @@ class SlcanTestCase(unittest.TestCase):
         # check response to N
         self.send(b"N\r")
         rx_data = self.receive()
-        self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
+        self.assertEqual(len(rx_data), len(b"NA123\r"))
         self.assertEqual(rx_data[0], b"NA123\r"[0])
         self.send(b"NA123\r")
         self.assertEqual(self.receive(), b"\r")
-        self.send(b"N\r")
-        self.assertEqual(self.receive(), b"NA123\r")
         self.send(b"N0\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"NA12\r")
@@ -211,24 +208,20 @@ class SlcanTestCase(unittest.TestCase):
         # check response to S in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "S" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to S in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "S" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -236,6 +229,8 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"S\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"S00\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"SG\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -248,25 +243,41 @@ class SlcanTestCase(unittest.TestCase):
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"s10460908\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"s10460908\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
+        # within range
+        self.send(b"s01010101\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"sFFFF8080\r")
+        self.assertEqual(self.receive(), b"\r")
+        
         # our of range
-        self.send(b"sFFFFFFFF\r")
+        self.send(b"s00460908\r")
+        self.assertEqual(self.receive(), b"\a")
+        #self.send(b"sFF460908\r")
+        #self.assertEqual(self.receive(), b"\a")
+        self.send(b"s10000908\r")
+        self.assertEqual(self.receive(), b"\a")
+        #self.send(b"s10FF0908\r")
+        #self.assertEqual(self.receive(), b"\a")
+        self.send(b"s10460008\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s10468108\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s10460900\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"s10460981\r")
         self.assertEqual(self.receive(), b"\a")
 
         # invalid format
@@ -291,24 +302,20 @@ class SlcanTestCase(unittest.TestCase):
         # check response to Y in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "Y" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to Y in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "Y" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -316,6 +323,8 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"Y\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"Y00\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"YG\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -327,25 +336,41 @@ class SlcanTestCase(unittest.TestCase):
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"y021E0908\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"y021E0908\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
+        # within range
+        self.send(b"y01010101\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"y20201010\r")
+        self.assertEqual(self.receive(), b"\r")
+        
         # our of range
-        self.send(b"yFFFFFFFF\r")
+        self.send(b"y001E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y211E0908\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y02000908\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y02210908\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y021E0008\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y021E1108\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y021E0900\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"y021E0911\r")
         self.assertEqual(self.receive(), b"\a")
 
         # invalid format
@@ -370,24 +395,20 @@ class SlcanTestCase(unittest.TestCase):
         # check response to Z in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "Z" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to Z in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "Z" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -395,6 +416,8 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"Z\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"Z00\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"ZG\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -411,24 +434,20 @@ class SlcanTestCase(unittest.TestCase):
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "z" + str(idx) + "000\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "z" + str(idx) + "000\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -436,6 +455,8 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"z000\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"z00000\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"zG000\r")
         self.assertEqual(self.receive(), b"\a")
 
 
@@ -447,30 +468,58 @@ class SlcanTestCase(unittest.TestCase):
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # invalid format
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"F0\r")
         self.assertEqual(self.receive(), b"\a")
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
+
+    def test_f_command(self):
+        # check response with CAN port closed
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"\a")
+
+        # check response in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"f\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"f\r"))
+        self.assertEqual(rx_data[0], b"f\r"[0])
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # check response in CAN silent mode
+        self.send(b"L\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"f\r")
+        rx_data = self.receive()
+        self.assertGreaterEqual(len(rx_data), len(b"f\r"))
+        self.assertEqual(rx_data[0], b"f\r"[0])
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # invalid format
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"f0\r")
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -488,24 +537,20 @@ class SlcanTestCase(unittest.TestCase):
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "W" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "W" + str(idx) + "\r"
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -514,45 +559,34 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
         self.send(b"W00\r")
         self.assertEqual(self.receive(), b"\a")
+        self.send(b"WG\r")
+        self.assertEqual(self.receive(), b"\a")
 
 
     def test_M_command(self):
         # check response with CAN port closed
-        cmd = "M0000003F\r"
-        self.send(cmd.encode())
+        self.send(b"M00000000\r")
         self.assertEqual(self.receive(), b"\r")
-        cmd = "M0137FEC8\r"
-        self.send(cmd.encode())
-        self.assertEqual(self.receive(), b"\r")
-        cmd = "MFFFFFFFF\r"
-        self.send(cmd.encode())
+        self.send(b"MFFFFFFFF\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
-        cmd = "M0000003F\r"
-        self.send(cmd.encode())
+        self.send(b"M00000000\r")
         self.assertEqual(self.receive(), b"\a")
-        cmd = "M0137FEC8\r"
-        self.send(cmd.encode())
+        self.send(b"MFFFFFFFF\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
-        cmd = "M0000003F\r"
-        self.send(cmd.encode())
+        self.send(b"M00000000\r")
         self.assertEqual(self.receive(), b"\a")
-        cmd = "M0137FEC8\r"
-        self.send(cmd.encode())
+        self.send(b"MFFFFFFFF\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -567,41 +601,28 @@ class SlcanTestCase(unittest.TestCase):
 
     def test_m_command(self):
         # check response with CAN port closed
-        cmd = "m0000003F\r"
-        self.send(cmd.encode())
+        self.send(b"m00000000\r")
         self.assertEqual(self.receive(), b"\r")
-        cmd = "m0137FEC8\r"
-        self.send(cmd.encode())
-        self.assertEqual(self.receive(), b"\r")
-        cmd = "mFFFFFFFF\r"
-        self.send(cmd.encode())
+        self.send(b"mFFFFFFFF\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
-        cmd = "m0000003F\r"
-        self.send(cmd.encode())
+        self.send(b"m00000000\r")
         self.assertEqual(self.receive(), b"\a")
-        cmd = "m0137FEC8\r"
-        self.send(cmd.encode())
+        self.send(b"mFFFFFFFF\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
-        cmd = "m0000003F\r"
-        self.send(cmd.encode())
+        self.send(b"m00000000\r")
         self.assertEqual(self.receive(), b"\a")
-        cmd = "m0137FEC8\r"
-        self.send(cmd.encode())
+        self.send(b"mFFFFFFFF\r")
         self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -621,16 +642,9 @@ class SlcanTestCase(unittest.TestCase):
             self.send(cmd.encode())
             self.assertEqual(self.receive(), b"\a")
 
-        # check cycle time
-        #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        #self.print_on = False       
-
         # check response to Q in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "Q" + str(idx) + "\r"
             self.send(cmd.encode())
@@ -638,20 +652,12 @@ class SlcanTestCase(unittest.TestCase):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
-
-        # check cycle time
-        #self.print_on = True
-        self.send(b"?\r")
-        self.receive()
-        #self.print_on = False       
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to Q in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for idx in range(0, 10):
             cmd = "Q" + str(idx) + "\r"
             self.send(cmd.encode())
@@ -659,7 +665,6 @@ class SlcanTestCase(unittest.TestCase):
                 self.assertEqual(self.receive(), b"\r")
             else:
                 self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -669,6 +674,8 @@ class SlcanTestCase(unittest.TestCase):
         self.send(b"Q\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"Q00\r")
+        self.assertEqual(self.receive(), b"\a")
+        self.send(b"QG\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
@@ -682,133 +689,123 @@ class SlcanTestCase(unittest.TestCase):
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
             self.assertEqual(self.receive(), b"\a")
-
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC80\r")
             self.assertEqual(self.receive(), b"\a")
 
-        # check response to shortest SEND in CAN normal mode
+        # check response to SEND in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
             self.assertEqual(self.receive(), b"z\r")
-
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC80\r")
             self.assertEqual(self.receive(), b"Z\r")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # check response to longest SEND in CAN normal mode
+        # check response to minimum/shortest SEND in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
+        self.send(b"r0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        self.send(b"t0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        self.send(b"d0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        self.send(b"b0000\r")
+        self.assertEqual(self.receive(), b"z\r")
+        self.send(b"R000000000\r")
+        self.assertEqual(self.receive(), b"Z\r")
+        self.send(b"T000000000\r")
+        self.assertEqual(self.receive(), b"Z\r")
+        self.send(b"D000000000\r")
+        self.assertEqual(self.receive(), b"Z\r")
+        self.send(b"B000000000\r")
+        self.assertEqual(self.receive(), b"Z\r")
+        self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
 
-        self.send(b"r03FF\r")
+        # check response to maximum/longest SEND in CAN normal mode
+        self.send(b"O\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"r7FFF\r")
         self.assertEqual(self.receive(), b"z\r")
-        self.send(b"t03F80011223344556677\r")
+        self.send(b"t7FF80011223344556677\r")
         self.assertEqual(self.receive(), b"z\r")
-        self.send(b"d03FF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
+        self.send(b"d7FFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
         self.assertEqual(self.receive(), b"z\r")
-        self.send(b"b03FF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
+        self.send(b"b7FFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
         self.assertEqual(self.receive(), b"z\r")
-
-        self.send(b"R0137FEC8F\r")
+        self.send(b"R1FFFFFFFF\r")
         self.assertEqual(self.receive(), b"Z\r")
-        self.send(b"T0137FEC880011223344556677\r")
+        self.send(b"T1FFFFFFF80011223344556677\r")
         self.assertEqual(self.receive(), b"Z\r")
-        self.send(b"D0137FEC8F00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
+        self.send(b"D1FFFFFFFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
         self.assertEqual(self.receive(), b"Z\r")
-        self.send(b"B0137FEC8F00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
+        self.send(b"B1FFFFFFFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF\r")
         self.assertEqual(self.receive(), b"Z\r")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to SEND in CAN silent mode
         self.send(b"L\r")
         self.assertEqual(self.receive(), b"\r")
-
         for cmd in cmd_send_std:
             self.send(cmd + b"03F0\r")
             self.assertEqual(self.receive(), b"\a")
-
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC80\r")
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to too short command in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for cmd in cmd_send_std:
             self.send(cmd + b"03F\r")
             self.assertEqual(self.receive(), b"\a")
-
         for cmd in cmd_send_std:
-            self.send(cmd + b"03F1\r")
-            if cmd == b"r":
-                self.assertEqual(self.receive(), b"z\r")
-            elif cmd == b"R":
-                self.assertEqual(self.receive(), b"Z\r")
-            else:
-                self.assertEqual(self.receive(), b"\a")
-
+            self.send(cmd + b"03F10\r")
+            self.assertEqual(self.receive(), b"\a")
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC8\r")
             self.assertEqual(self.receive(), b"\a")
-
         for cmd in cmd_send_ext:
-            self.send(cmd + b"0137FEC81\r")
-            if cmd == b"r":
-                self.assertEqual(self.receive(), b"z\r")
-            elif cmd == b"R":
-                self.assertEqual(self.receive(), b"Z\r")
-            else:
-                self.assertEqual(self.receive(), b"\a")
-
+            self.send(cmd + b"0137FEC810\r")
+            self.assertEqual(self.receive(), b"\a")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to too long command in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for cmd in cmd_send_std:
             self.send(cmd + b"03F00\r")
             self.assertEqual(self.receive(), b"\a")
-
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC800\r")
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to invalid command in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         for cmd in cmd_send_std:
             self.send(cmd + b"03FG\r")
             self.assertEqual(self.receive(), b"\a")
-
         for cmd in cmd_send_ext:
             self.send(cmd + b"0137FEC8G\r")
             self.assertEqual(self.receive(), b"\a")
-
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
         # check response to out of range command in CAN normal mode
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-
         self.send(b"r8000\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"t8000\r")
@@ -817,9 +814,12 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
         self.send(b"d8000\r")
         self.assertEqual(self.receive(), b"\a")
+        self.send(b"d03F9001122334455667788\r")
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"b8000\r")
         self.assertEqual(self.receive(), b"\a")
-
+        self.send(b"b03F9001122334455667788\r")
+        self.assertEqual(self.receive(), b"\a")
         self.send(b"R200000000\r")
         self.assertEqual(self.receive(), b"\a")
         self.send(b"T200000000\r")
@@ -828,9 +828,12 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"\a")
         self.send(b"D200000000\r")
         self.assertEqual(self.receive(), b"\a")
+        #self.send(b"D0137FEC89001122334455667788\r")
+        #self.assertEqual(self.receive(), b"\a")
         self.send(b"B200000000\r")
         self.assertEqual(self.receive(), b"\a")
-
+        #self.send(b"B0137FEC89001122334455667788\r")
+        #self.assertEqual(self.receive(), b"\a")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 

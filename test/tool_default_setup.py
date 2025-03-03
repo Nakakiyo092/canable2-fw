@@ -5,8 +5,8 @@ import unittest
 import time
 import serial
 
-# NOTE: This test needs to be done with CAN bus fixed at dominant level.
-class ShortTestCase(unittest.TestCase):
+
+class SlcanTestCase(unittest.TestCase):
 
     print_on: bool
     canable: serial
@@ -25,18 +25,6 @@ class ShortTestCase(unittest.TestCase):
 
         # reset to default status
         self.send(b"C\r")
-        self.receive()
-        self.send(b"S4\r")
-        self.receive()
-        self.send(b"Y2\r")
-        self.receive()
-        self.send(b"Z0\r")
-        self.receive()
-        self.send(b"W2\r")
-        self.receive()
-        self.send(b"M00000000\r")
-        self.receive()
-        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
         self.receive()
 
 
@@ -79,36 +67,54 @@ class ShortTestCase(unittest.TestCase):
             self.print_slcan_data("R", rx_data)
         
         return rx_data
+        
 
-
-    def test_dominant(self):
-        cmd_send_std = (b"r", b"t", b"d", b"b")
-        cmd_send_ext = (b"R", b"T", b"D", b"B")
-
+    def test_Q_command(self):
         #self.print_on = True
-        self.send(b"=\r")
+
+        # Bit rate
+        self.send(b"S4\r")
+        self.assertEqual(self.receive(), b"\r")
+        self.send(b"Y2\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # check no error
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f: node_sts=ER_ACTV, last_err_code=NONE, err_cnt_tx_rx=[0x00, 0x00], est_bus_load_percent=00\r")
-        self.send(b"C\r")
+        # Timestamp
+        self.send(b"Z0\r")
         self.assertEqual(self.receive(), b"\r")
 
-        # check error passive
+        # Filter
+        self.send(b"W2\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"M00000000\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        self.send(b"mFFFFFFFF\r")       # mFFFFFFFF -> Pass all
+        self.assertEqual(self.receive(), b"\r")
+
+        # Open port
         self.send(b"O\r")
         self.assertEqual(self.receive(), b"\r")
-        time.sleep(0.5)     # wait for error passive ( > 1ms * 128 / 1)
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"FA4\r")  # BEI + EPI + EI
-        self.send(b"F\r")
-        self.assertEqual(self.receive(), b"F00\r")  # check error clear
-        self.send(b"f\r")
-        self.assertEqual(self.receive(), b"f: node_sts=ER_PSSV, last_err_code=FORM, err_cnt_tx_rx=[0x00, 0x80], est_bus_load_percent=00\r")
 
+        # Mode
+        self.send(b"Q0\r")
+        self.assertEqual(self.receive(), b"\r")
+
+        # Close port
         self.send(b"C\r")
+        self.assertEqual(self.receive(), b"\r")
+
+
+    def test_N_command(self):
+        #self.print_on = True
+
+        # Check response to N
+        self.send(b"N\r")
+        rx_data = self.receive()
+
+        # Update serial number
+        self.send(b"NAB01\r")
+        time.sleep(0.1)         # Extra wait for flash update
         self.assertEqual(self.receive(), b"\r")
 
 

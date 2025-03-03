@@ -5,6 +5,7 @@
 #include "stm32g4xx.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include "buffer.h"
 #include "can.h"
 #include "led.h"
 #include "nvm.h"
@@ -17,6 +18,7 @@ int main(void)
     // Initialize peripherals
     system_init();
     led_init();
+    buf_init();
     can_init();
     nvm_init();
     usb_init();
@@ -30,6 +32,6 @@ int main(void)
     {
         led_process();
         can_process();
-        cdc_process();
+        buf_process();
     }
 }

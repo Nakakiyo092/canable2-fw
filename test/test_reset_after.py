@@ -19,10 +19,6 @@ class LoopbackTestCase(unittest.TestCase):
         # device name should be changed
         self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
 
-        # clear buffer
-        self.send(b"\r\r\r")
-        self.receive()
-
         # DO NOT RESET!
         
 
@@ -156,8 +152,6 @@ class LoopbackTestCase(unittest.TestCase):
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
-
-    # TODO: How to check bitrates?
 
 
 if __name__ == "__main__":
