@@ -92,6 +92,8 @@ class ShortTestCase(unittest.TestCase):
         # check no error
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f: node_sts=ER_ACTV, last_err_code=NONE, err_cnt_tx_rx=[0x00, 0x00], est_bus_load_percent=00\r")
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
 
@@ -103,6 +105,8 @@ class ShortTestCase(unittest.TestCase):
         self.assertEqual(self.receive(), b"FA4\r")  # BEI + EPI + EI
         self.send(b"F\r")
         self.assertEqual(self.receive(), b"F00\r")  # check error clear
+        self.send(b"f\r")
+        self.assertEqual(self.receive(), b"f: node_sts=ER_PSSV, last_err_code=FORM, err_cnt_tx_rx=[0x00, 0x80], est_bus_load_percent=00\r")
 
         self.send(b"C\r")
         self.assertEqual(self.receive(), b"\r")
