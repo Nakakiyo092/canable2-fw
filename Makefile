@@ -10,8 +10,7 @@
 
 
 # SOURCES: list of sources in the user application
-#SOURCES = main.c system_stm32g4xx.c system.c usbd_conf.c usbd_cdc_if.c usb_device.c usbd_desc.c interrupts.c can.c error.c led.c nvm.c slcan.c printf.c buffer.c
-SOURCES = main.c system_stm32g4xx.c system.c interrupts.c can.c error.c led.c nvm.c slcan.c printf.c buffer.c
+SOURCES = main.c system_stm32g4xx.c system.c interrupts.c can.c error.c led.c nvm.c slcan.c printf.c buffer.c usb_descriptors.c
 
 # Get git version and dirty flag
 GIT_VERSION := $(shell git describe --abbrev=7 --dirty --always --tags)
@@ -35,9 +34,11 @@ USER_DEFS = -D HSI48_VALUE=48000000 -D HSE_VALUE=16000000
 USER_INCLUDES =
 
 # USB_INCLUDES: includes for the usb library
-#USB_INCLUDES = -IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc
-#USB_INCLUDES += -IMiddlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
-USB_INCLUDES =
+USB_INCLUDES = -Itinyusb/src
+USB_INCLUDES += -Itinyusb/src/portable/st/stm32_fsdev
+USB_INCLUDES += -Itinyusb/src/common
+USB_INCLUDES += -Itinyusb/src/device
+USB_INCLUDES += -Itinyusb/src/class/cdc
 
 # USER_CFLAGS: user C flags (enable warnings, enable debug info)
 USER_CFLAGS = -Wall -g -ffunction-sections -fdata-sections -Os
@@ -99,6 +100,7 @@ CFLAGS += -mcpu=$(CPU) -mthumb
 CFLAGS += $(USER_CFLAGS)
 CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 CFLAGS += -DGIT_REMOTE=\"$(GIT_REMOTE)\"
+CFLAGS += -DCFG_TUSB_MCU=OPT_MCU_STM32G4
 
 # default action: build the user application
 all: $(BUILD_DIR)/$(TARGET).bin $(BUILD_DIR)/$(TARGET).hex
@@ -134,23 +136,32 @@ $(CUBELIB_BUILD_DIR):
 #######################################
 # build the USB library
 #######################################
-#USB_MIDDLEWARE_PATH = ./Middlewares/ST/STM32_USB_Device_Library/
-#USB_BUILD_DIR = $(BUILD_DIR)/usb
-#USB_SOURCES += usbd_ctlreq.c usbd_ioreq.c usbd_core.c usbd_cdc.c
-## list of usb library objects
-#USB_OBJECTS += $(addprefix $(USB_BUILD_DIR)/,$(notdir $(USB_SOURCES:.c=.o)))
+USB_MIDDLEWARE_PATH = ./tinyusb/src
+USB_BUILD_DIR = $(BUILD_DIR)/usb
+USB_SOURCES += tusb.c dcd_stm32_fsdev.c tusb_fifo.c usbd.c usbd_control.c cdc_device.c
+# list of usb library objects
+USB_OBJECTS += $(addprefix $(USB_BUILD_DIR)/,$(notdir $(USB_SOURCES:.c=.o)))
 
-#usb: $(USB_OBJECTS)
+usb: $(USB_OBJECTS)
 
-#$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/Core/Src/%.c | $(USB_BUILD_DIR)
-#	$(CC) -Os $(CFLAGS) -c -o $@ $^
+$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/%.c | $(USB_BUILD_DIR)
+	$(CC) -Os $(CFLAGS) -c -o $@ $^
 
-#$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/Class/CDC/Src/%.c | $(USB_BUILD_DIR)
-#	$(CC) -Os $(CFLAGS) -c -o $@ $^
+$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/portable/st/stm32_fsdev/%.c | $(USB_BUILD_DIR)
+	$(CC) -Os $(CFLAGS) -c -o $@ $^
 
-#$(USB_BUILD_DIR):
-#	@echo $(USB_BUILD_DIR)
-#	$(MKDIR) $@
+$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/common/%.c | $(USB_BUILD_DIR)
+	$(CC) -Os $(CFLAGS) -c -o $@ $^
+
+$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/device/%.c | $(USB_BUILD_DIR)
+	$(CC) -Os $(CFLAGS) -c -o $@ $^
+
+$(USB_BUILD_DIR)/%.o: $(USB_MIDDLEWARE_PATH)/class/cdc/%.c | $(USB_BUILD_DIR)
+	$(CC) -Os $(CFLAGS) -c -o $@ $^
+
+$(USB_BUILD_DIR):
+	@echo $(USB_BUILD_DIR)
+	$(MKDIR) $@
 
 #######################################
 # build the user application

@@ -8,9 +8,10 @@
 #include "can.h"
 #include "led.h"
 #include "nvm.h"
-#include "printf.h"
 #include "slcan.h"
 #include "system.h"
+#include "tusb.h"
+#include "printf.h"
 
 int main(void)
 {
@@ -21,6 +22,13 @@ int main(void)
     can_init();
     nvm_init();
 
+    // init device stack on configured roothub port
+    tusb_rhport_init_t dev_init = {
+        .role = TUSB_ROLE_DEVICE,
+        .speed = TUSB_SPEED_AUTO
+    };
+    tusb_init(BOARD_TUD_RHPORT, &dev_init);
+  
     // Power-on blink sequence
     led_blink_sequence(5);
 
