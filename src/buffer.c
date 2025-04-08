@@ -2,7 +2,8 @@
 // buffer: manage buffer
 //
 
-#include "usbd_cdc_if.h"
+#include <string.h>
+#include "stm32g4xx_hal.h"
 #include "buffer.h"
 #include "error.h"
 #include "slcan.h"
@@ -97,10 +98,10 @@ void buf_process(void)
     uint32_t new_tail = (buf_cdc_tx.tail + 1UL) % BUF_CDC_TX_NUM_BUFS;
     if (new_tail != buf_cdc_tx.head)
     {
-        if (CDC_Transmit_FS((uint8_t *)buf_cdc_tx.data[new_tail], buf_cdc_tx.msglen[new_tail]) == USBD_OK)
-        {
-            buf_cdc_tx.tail = new_tail;
-        }
+        //if (CDC_Transmit_FS((uint8_t *)buf_cdc_tx.data[new_tail], buf_cdc_tx.msglen[new_tail]) == USBD_OK)
+        //{
+        //    buf_cdc_tx.tail = new_tail;
+        //}
     }
     system_irq_enable();
 

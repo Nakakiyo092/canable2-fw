@@ -3,8 +3,7 @@
 //
 
 #include "stm32g4xx.h"
-#include "usb_device.h"
-#include "usbd_cdc_if.h"
+#include "stm32g4xx_hal.h"
 #include "buffer.h"
 #include "can.h"
 #include "led.h"
@@ -21,7 +20,6 @@ int main(void)
     buf_init();
     can_init();
     nvm_init();
-    usb_init();
 
     // Power-on blink sequence
     led_blink_sequence(5);

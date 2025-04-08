@@ -4,13 +4,13 @@
 
 #include <string.h>
 #include "stm32g4xx_hal.h"
-#include "usbd_cdc_if.h"
 #include "buffer.h"
 #include "can.h"
 #include "error.h"
 #include "led.h"
 #include "nvm.h"
 #include "slcan.h"
+#include "printf.h"
 
 // Status flags, value is bit position in the status flags
 enum slcan_status_flag

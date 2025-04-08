@@ -3,7 +3,6 @@
 //
 
 #include "stm32g4xx_hal.h"
-#include "usbd_cdc_if.h"
 #include "buffer.h"
 #include "can.h"
 #include "error.h"

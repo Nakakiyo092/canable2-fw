@@ -2,11 +2,11 @@
 #define __BUFFER_H__
 
 #include "can.h"
-#include "usbd_cdc.h"
 
 // CDC receive buffering
 #define BUF_CDC_RX_NUM_BUFS 8
-#define BUF_CDC_RX_BUF_SIZE CDC_DATA_FS_MAX_PACKET_SIZE // Size of RX buffer item
+//#define BUF_CDC_RX_BUF_SIZE CDC_DATA_FS_MAX_PACKET_SIZE // Size of RX buffer item
+#define BUF_CDC_RX_BUF_SIZE 64 // Size of RX buffer item
 
 // CDC transmit buffering
 #define BUF_CDC_TX_NUM_BUFS 3
