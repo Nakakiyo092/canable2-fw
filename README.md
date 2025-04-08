@@ -41,7 +41,7 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `F` and `f` - Returns status flags and detailed status
 - `Q` - Turn on or off auto-startup feature
 
-Please find more information in the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
+Please find more information in the `doc` directory or the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
 
 Note: Channel configuration commands must be sent before opening the channel. The channel must be opened before transmitting frames.
 
