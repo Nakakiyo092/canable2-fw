@@ -81,7 +81,29 @@ void system_init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE(); // just nrst is on portG
 
-  /** Initializes the TIM3 clocks for CAN timestamp
+  /** Initializes USB
+   */
+  __HAL_RCC_USB_CLK_ENABLE();
+
+  HAL_NVIC_EnableIRQ(USB_LP_IRQn);
+
+  PCD_HandleTypeDef hpcd_USB_FS;
+
+  hpcd_USB_FS.Instance = USB;
+  hpcd_USB_FS.Init.dev_endpoints = 8;
+  hpcd_USB_FS.Init.speed = PCD_SPEED_FULL;
+  hpcd_USB_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
+  hpcd_USB_FS.Init.Sof_enable = DISABLE;
+  hpcd_USB_FS.Init.low_power_enable = DISABLE;
+  hpcd_USB_FS.Init.lpm_enable = DISABLE;
+  hpcd_USB_FS.Init.battery_charging_enable = DISABLE;
+  if (HAL_PCD_Init(&hpcd_USB_FS) != HAL_OK)
+  {
+    while (1)
+      ;
+  }
+
+  /** Initializes the TIM3 clock for CAN timestamp
    */
   __HAL_RCC_TIM3_CLK_ENABLE();
   

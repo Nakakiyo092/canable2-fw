@@ -8,6 +8,7 @@
 #include "error.h"
 #include "slcan.h"
 #include "system.h"
+#include "tusb.h"
 
 // Cirbuf structure for CAN TX frames
 struct buf_can_tx
@@ -52,15 +53,14 @@ void buf_init(void)
 void buf_process(void)
 {
     // Process cdc receive buffer
-    system_irq_disable();
-    uint32_t tmp_head = buf_cdc_rx.head;
-    system_irq_enable();
-    if (buf_cdc_rx.tail != tmp_head)
-    {
-        //  Process one whole buffer
-        for (uint32_t i = 0; i < buf_cdc_rx.msglen[buf_cdc_rx.tail]; i++)
+    if (tud_cdc_n_available(0)) {
+        uint8_t buf[64];
+
+        uint32_t count = tud_cdc_n_read(0, buf, sizeof(buf));
+
+        for (uint32_t i = 0; i < count; i++)
 	    {
-            if (buf_cdc_rx.data[buf_cdc_rx.tail][i] == '\r')
+            if (buf[i] == '\r')
             {
                 slcan_parse_str(slcan_str, slcan_str_index);
                 slcan_str_index = 0;
@@ -73,16 +73,11 @@ void buf_process(void)
                     // TODO: Return here and discard this CDC buffer?
                     slcan_str_index = 0;
                 }
-
-                slcan_str[slcan_str_index++] = buf_cdc_rx.data[buf_cdc_rx.tail][i];
+                slcan_str[slcan_str_index++] = buf[i];
             }
         }
-
-        // Move on to next buffer
-        system_irq_disable();
-        buf_cdc_rx.tail = (buf_cdc_rx.tail + 1) % BUF_CDC_RX_NUM_BUFS;
-        system_irq_enable();
     }
+
 
     // Process cdc transmit buffer
     uint32_t new_head = (buf_cdc_tx.head + 1UL) % BUF_CDC_TX_NUM_BUFS;
@@ -94,16 +89,14 @@ void buf_process(void)
             buf_cdc_tx.msglen[new_head] = 0;
         }
     }
-    system_irq_disable();
     uint32_t new_tail = (buf_cdc_tx.tail + 1UL) % BUF_CDC_TX_NUM_BUFS;
     if (new_tail != buf_cdc_tx.head)
     {
-        //if (CDC_Transmit_FS((uint8_t *)buf_cdc_tx.data[new_tail], buf_cdc_tx.msglen[new_tail]) == USBD_OK)
-        //{
-        //    buf_cdc_tx.tail = new_tail;
-        //}
+        for (uint32_t i = 0; i < buf_cdc_tx.msglen[new_tail]; i++)
+            tud_cdc_n_write_char(0, buf_cdc_tx.data[new_tail][i]);
+        tud_cdc_n_write_flush(0);
+        buf_cdc_tx.tail = new_tail;
     }
-    system_irq_enable();
 
 
     // Process can transmit buffer

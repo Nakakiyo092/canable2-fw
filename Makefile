@@ -100,7 +100,6 @@ CFLAGS += -mcpu=$(CPU) -mthumb
 CFLAGS += $(USER_CFLAGS)
 CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 CFLAGS += -DGIT_REMOTE=\"$(GIT_REMOTE)\"
-CFLAGS += -DCFG_TUSB_MCU=OPT_MCU_STM32G4
 
 # default action: build the user application
 all: $(BUILD_DIR)/$(TARGET).bin $(BUILD_DIR)/$(TARGET).hex

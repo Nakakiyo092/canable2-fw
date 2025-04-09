@@ -50,7 +50,7 @@
 
 // defined by board.mk
 #ifndef CFG_TUSB_MCU
-#error CFG_TUSB_MCU must be defined
+#define CFG_TUSB_MCU          OPT_MCU_STM32G4
 #endif
 
 #ifndef CFG_TUSB_OS
@@ -91,7 +91,7 @@
 #endif
 
 //------------- CLASS -------------//
-#define CFG_TUD_CDC               2
+#define CFG_TUD_CDC               1
 #define CFG_TUD_MSC               0
 #define CFG_TUD_HID               0
 #define CFG_TUD_MIDI              0
