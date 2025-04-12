@@ -26,8 +26,8 @@
 #include "stm32g431xx.h"
 #include "tusb.h"
 
-#define USB_VID   0x16D0
-#define USB_PID   0x117E
+#define USB_VID   0x16d0
+#define USB_PID   0x117e
 #define USB_BCD   0x0200
 
 //--------------------------------------------------------------------+
