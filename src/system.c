@@ -93,9 +93,6 @@ void system_init(void)
 
   __HAL_RCC_USB_CLK_ENABLE();
 
-  //HAL_NVIC_SetPriority(USB_LP_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(USB_LP_IRQn);
-
   PCD_HandleTypeDef hpcd_USB_FS;
 
   hpcd_USB_FS.Instance = USB;
@@ -111,6 +108,9 @@ void system_init(void)
     while (1)
       ;
   }
+
+  HAL_NVIC_SetPriority(USB_LP_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(USB_LP_IRQn);
 
   /** Initializes the TIM3 clock for CAN timestamp
    */
