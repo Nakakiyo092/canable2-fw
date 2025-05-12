@@ -3,34 +3,23 @@
 import unittest
 
 import time
-import serial
+from device_under_test import DeviceUnderTest
 
 
 class SlcanTestCase(unittest.TestCase):
 
     print_on: bool
-    canable: serial
+    dut: DeviceUnderTest
 
     def setUp(self):
-        # initialize
-        self.print_on = False
-        
-        # connect to canable
-        # device name should be changed
-        self.canable = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
-
-        # clear buffer
-        self.send(b"\r\r\r")
-        self.receive()
-
-        # reset to default status
-        self.send(b"C\r")
-        self.receive()
+        self.dut = DeviceUnderTest()
+        self.dut.open()
+        self.dut.setup()
 
 
     def tearDown(self):
         # close serial
-        self.canable.close()
+        self.dut.close()
 
 
     def print_slcan_data(self, dir: chr, data: bytes):
@@ -48,7 +37,7 @@ class SlcanTestCase(unittest.TestCase):
     def send(self, tx_data: bytes):
         self.canable.write(tx_data)
 
-        if (self.print_on):
+        if (self.dut.print_on):
             self.print_slcan_data("T", tx_data)
 
 
@@ -63,24 +52,24 @@ class SlcanTestCase(unittest.TestCase):
             if len(tmp) == 0 and len(rx_data) != 0:
                 break
 
-        if (self.print_on):
+        if (self.dut.print_on):
             self.print_slcan_data("R", rx_data)
         
         return rx_data
 
 
     def test_N_command(self):
-        self.print_on = True
+        self.dut.print_on = True
         # Check response to N
-        self.send(b"N\r")
-        rx_data = self.receive()
+        self.dut.send(b"N\r")
+        rx_data = self.dut.receive()
         #self.assertGreaterEqual(len(rx_data), len(b"NA123\r"))
         #self.assertEqual(rx_data[0], b"NA123\r"[0])
 
         # Update serial number
-        self.send(b"NAB01\r")
+        self.dut.send(b"NAB01\r")
         time.sleep(0.1)         # Extra wait for flash update
-        self.assertEqual(self.receive(), b"\r")
+        self.assertEqual(self.dut.receive(), b"\r")
 
         # Check serial number after reset
 
