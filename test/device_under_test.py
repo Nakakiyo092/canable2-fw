@@ -15,8 +15,8 @@ class DeviceUnderTest:
     def open(self):
         # connect to serial
         # device name should be changed
-        #self.ser = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
-        self.ser = serial.Serial('COM9', timeout=1, write_timeout=1)
+        self.ser = serial.Serial('/dev/ttyACM0', timeout=1, write_timeout=1)
+        #self.ser = serial.Serial('COM9', timeout=1, write_timeout=1)
 
 
     def setup(self):
