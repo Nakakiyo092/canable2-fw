@@ -13,7 +13,8 @@ def check_key():
 check_key_thread = threading.Thread(target=check_key)
 check_key_thread.start()
 
-canable = serial.Serial("/dev/ttyACM0", timeout=1, write_timeout=1)
+#canable = serial.Serial("/dev/ttyACM0", timeout=1, write_timeout=1)
+canable = serial.Serial("COM9", timeout=1, write_timeout=1)
 
 canable.write(b"C\r")
 time.sleep(0.1)
