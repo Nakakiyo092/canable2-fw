@@ -589,25 +589,23 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     }
 
     // Transmit the message
-    if (buf_comit_can_dest() == HAL_OK)
-    {
-        // Send ACK
-        if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
-        {
-            if (frame_header->IdType == FDCAN_EXTENDED_ID)
-                buf_enqueue_cdc((uint8_t *)"Z\r", 2);
-            else
-                buf_enqueue_cdc((uint8_t *)"z\r", 2);
-        }
-        else
-        {
-            buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
-        }
-    }
-    else
+    if (buf_comit_can_dest() != HAL_OK)
     {
         buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
         return;
+    }
+    
+    // Send ACK
+    if (((slcan_report_reg >> SLCAN_REPORT_TX) & 1) == 0)
+    {
+        if (frame_header->IdType == FDCAN_EXTENDED_ID)
+            buf_enqueue_cdc((uint8_t *)"Z\r", 2);
+        else
+            buf_enqueue_cdc((uint8_t *)"z\r", 2);
+    }
+    else
+    {
+        buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
     }
 
     return;
