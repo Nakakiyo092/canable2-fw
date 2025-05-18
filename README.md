@@ -32,7 +32,6 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `Diiiiiiiildd...` - Transmit CAN FD extended ID (no BRS) [ID, length, data]
 - `biiildd...` - Transmit CAN FD BRS standard ID [ID, length, data]
 - `Biiiiiiiildd...` - Transmit CAN FD BRS extended ID [ID, length, data]
-
 - `V` and `v` - Returns firmware version and remote path as a string
 - `N` - Returns and sets serial number 
 - `I` and `i` - Returns CAN controller information
@@ -41,7 +40,7 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `F` and `f` - Returns status flags and detailed status
 - `Q` - Turn on or off auto-startup feature
 
-Please find more information in the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
+Please find more information in the `doc` directory or the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
 
 Note: Channel configuration commands must be sent before opening the channel. The channel must be opened before transmitting frames.
 
@@ -56,7 +55,7 @@ Your Linux distribution may also have a prebuilt package for `arm-none-eabi-gcc`
 
 ## Flashing with the Bootloader
 
-Plug in your CANable2 while boot pins are shorted with jumper. The blue LED should be dimly illuminated. Next, type `make flash` and your CANable will be updated to the latest firwmare. Unplug/replug the device after moving the boot jumper back, and your CANable2 will be up and running.
+Plug in your CANable2 while boot pins are shorted with jumper. Neither the blue nor the green LED should be illuminated. Next, type `make flash` and your CANable will be updated to the latest firwmare. Unplug/replug the device after moving the boot jumper back, and your CANable2 will be up and running.
 
 ## License
 
