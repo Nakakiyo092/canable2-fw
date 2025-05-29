@@ -322,7 +322,7 @@ void can_process(void)
 
     if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF))
     {
-        error_assert(ERR_CAN_ERR_PASSIVE);
+        error_assert(ERR_CAN_BUS_OFF);
         __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF);
     }
 
