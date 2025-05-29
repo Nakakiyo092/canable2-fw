@@ -71,6 +71,7 @@ static void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_set_auto_retransmit(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_version(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_can_info(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
@@ -375,6 +376,10 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Set filter mask
     case 'm':
         slcan_parse_str_filter_mask(buf, len);
+        return;
+    // Set auto retransmit
+    case '-':
+        slcan_parse_str_set_auto_retransmit(buf, len);
         return;
     // Set auto startup mode
     case 'Q':
@@ -963,6 +968,39 @@ void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
         return;
     }
 }
+
+
+// Set auto retransmit
+static void slcan_parse_str_set_auto_retransmit(uint8_t *buf, uint8_t len)
+{
+    // Set auto retransmit
+    if (can_get_bus_state() == BUS_CLOSED)
+    {
+        // Check for valid command
+        if (len != 2 || 2 <= buf[1])
+        {
+            buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        // Apply the state
+        if (can_set_auto_retransmit((buf[1] == 0) ? DISABLE : ENABLE) != HAL_OK)
+        {
+            buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // Command can only be sent if the device is initiated but not open.
+    else
+    {
+        buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
 
 // Get version number in standard + detailed style
 void slcan_parse_str_version(uint8_t *buf, uint8_t len)
