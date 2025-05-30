@@ -85,6 +85,7 @@ uint32_t can_get_filter_ext_mask(void);
 
 // CAN mode and status
 HAL_StatusTypeDef can_set_mode(uint32_t mode);
+HAL_StatusTypeDef can_set_auto_retransmit(FunctionalState state);
 enum can_bus_state can_get_bus_state(void);
 struct can_error_state can_get_error_state(void);
 FunctionalState can_is_tx_enabled(void);

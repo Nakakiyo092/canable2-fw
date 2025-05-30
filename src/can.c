@@ -32,6 +32,7 @@ static FDCAN_FilterTypeDef can_ext_pass_all;
 static enum can_bus_state can_bus_state;
 static struct can_error_state can_error_state = {0};
 static uint32_t can_mode = FDCAN_MODE_NORMAL;
+static FunctionalState can_auto_retransmit = ENABLE;
 static struct can_bitrate_cfg can_bitrate_nominal, can_bitrate_data = {0};
 
 static uint32_t can_cycle_max_time_ns = 0;
@@ -122,7 +123,7 @@ HAL_StatusTypeDef can_enable(void)
         can_handle.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
 
         can_handle.Init.Mode = can_mode;
-        can_handle.Init.AutoRetransmission = ENABLE;
+        can_handle.Init.AutoRetransmission = can_auto_retransmit;
         can_handle.Init.TransmitPause = DISABLE;
         can_handle.Init.ProtocolException = ENABLE;
 
@@ -297,6 +298,7 @@ void can_process(void)
 
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
     if (rx_err_cnt > can_error_state.rec || cnt.TxErrorCnt > can_error_state.tec) error_assert(ERR_CAN_BUS_ERR);
+    if (sts.BusOff && !can_error_state.bus_off) error_assert(ERR_CAN_BUS_ERR);  // Capture counter increase that caused bus off
 
     can_error_state.bus_off = (uint8_t)sts.BusOff;
     can_error_state.err_pssv = (uint8_t)sts.ErrorPassive;
@@ -322,7 +324,7 @@ void can_process(void)
 
     if (__HAL_FDCAN_GET_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF))
     {
-        error_assert(ERR_CAN_ERR_PASSIVE);
+        error_assert(ERR_CAN_BUS_OFF);
         __HAL_FDCAN_CLEAR_FLAG(&can_handle, FDCAN_FLAG_BUS_OFF);
     }
 
@@ -605,6 +607,19 @@ HAL_StatusTypeDef can_set_mode(uint32_t mode)
         return HAL_ERROR;
     }
     can_mode = mode;
+
+    return HAL_OK;
+}
+
+// Set auto retransmit fucntion
+HAL_StatusTypeDef can_set_auto_retransmit(FunctionalState state)
+{
+    if (can_bus_state == BUS_OPENED)
+    {
+        // cannot set state while on bus
+        return HAL_ERROR;
+    }
+    can_auto_retransmit = state;
 
     return HAL_OK;
 }
