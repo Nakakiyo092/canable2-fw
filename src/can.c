@@ -298,6 +298,7 @@ void can_process(void)
 
     uint8_t rx_err_cnt = (uint8_t)(cnt.RxErrorPassive ? 128 : cnt.RxErrorCnt);
     if (rx_err_cnt > can_error_state.rec || cnt.TxErrorCnt > can_error_state.tec) error_assert(ERR_CAN_BUS_ERR);
+    if (sts.BusOff && !can_error_state.bus_off) error_assert(ERR_CAN_BUS_ERR);  // Capture counter increase that caused bus off
 
     can_error_state.bus_off = (uint8_t)sts.BusOff;
     can_error_state.err_pssv = (uint8_t)sts.ErrorPassive;
