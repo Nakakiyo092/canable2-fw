@@ -22,27 +22,78 @@ class ErrorTestCase(unittest.TestCase):
         self.dut.close()
 
 
-    def test_error_passive(self):
+    def test_error_active(self):
         #self.dut.print_on = True
         self.dut.send(b"=\r")
         self.assertEqual(self.dut.receive(), b"\r")
-
-        # check no error
         self.dut.send(b"F\r")
         self.assertEqual(self.dut.receive(), b"F00\r")
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_ACTV, last_err_code=NONE, err_cnt_tx_rx=[0x00, 0x00], est_bus_load_percent=00\r")
         self.dut.send(b"t0000\r")
         self.assertEqual(self.dut.receive(), b"z\rt0000\r")
-        time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
+        time.sleep(0.2)     # wait for a while ( > 1ms * 128)
         self.dut.send(b"F\r")
         self.assertEqual(self.dut.receive(), b"F00\r")
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_ACTV, last_err_code=NONE, err_cnt_tx_rx=[0x00, 0x00], est_bus_load_percent=00\r")
         self.dut.send(b"C\r")
         self.assertEqual(self.dut.receive(), b"\r")
 
-        # check error passive
+
+    def test_bus_error(self):
+        #self.dut.print_on = True
+        self.dut.send(b"-0\r")  # Disable auto retransmission
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"O\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"t0000\r")
+        self.assertEqual(self.dut.receive(), b"z\r")
+        time.sleep(0.2)     # wait for a while ( > 1ms * 1)
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F80\r")  # BEI
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F00\r")  # check error clear
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_ACTV, last_err_code=_ACK, err_cnt_tx_rx=[0x08, 0x00], est_bus_load_percent=00\r")
+
+        self.dut.send(b"C\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"-1\r")  # Enable auto retransmission
+        self.assertEqual(self.dut.receive(), b"\r")
+        
+
+    def test_error_warning(self):
+        #self.dut.print_on = True
+        self.dut.send(b"-0\r")  # Disable auto retransmission
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"O\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        for i in range(0, 12):
+            self.dut.send(b"t0000\r")
+            self.assertEqual(self.dut.receive(), b"z\r")
+        time.sleep(0.2)     # wait for a while ( > 1ms * 12)
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F84\r")  # BEI + EI
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F00\r")  # check error clear
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_ACTV, last_err_code=_ACK, err_cnt_tx_rx=[0x60, 0x00], est_bus_load_percent=00\r")
+
+        self.dut.send(b"C\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"-1\r")  # Enable auto retransmission
+        self.assertEqual(self.dut.receive(), b"\r")
+
+
+    def test_error_passive(self):
+        #self.dut.print_on = True
         self.dut.send(b"O\r")
         self.assertEqual(self.dut.receive(), b"\r")
         self.dut.send(b"F\r")
         self.assertEqual(self.dut.receive(), b"F00\r")
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_ACTV, last_err_code=NONE, err_cnt_tx_rx=[0x00, 0x00], est_bus_load_percent=00\r")
         self.dut.send(b"t0000\r")
         self.assertEqual(self.dut.receive(), b"z\r")
         time.sleep(0.2)     # wait for error passive ( > 1ms * 128)
@@ -50,7 +101,44 @@ class ErrorTestCase(unittest.TestCase):
         self.assertEqual(self.dut.receive(), b"FA4\r")  # BEI & EPI & EI
         self.dut.send(b"F\r")
         self.assertEqual(self.dut.receive(), b"F00\r")  # Check cleared
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_PSSV, last_err_code=_ACK, err_cnt_tx_rx=[0x80, 0x00], est_bus_load_percent=00\r")
         self.dut.send(b"C\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+
+
+    def test_error_passive_clear(self):
+        #self.dut.print_on = True
+        self.dut.send(b"-0\r")  # Disable auto retransmission
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"O\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        
+        for i in range(0, 12):
+            self.dut.send(b"t0000\r")
+            self.assertEqual(self.dut.receive(), b"z\r")
+        time.sleep(0.2)     # wait for a while ( > 1ms * 12)
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F84\r")  # BEI + EI
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F00\r")  # check error clear
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_ACTV, last_err_code=_ACK, err_cnt_tx_rx=[0x60, 0x00], est_bus_load_percent=00\r")
+
+        for i in range(0, 4):
+            self.dut.send(b"t0000\r")
+            self.assertEqual(self.dut.receive(), b"z\r")
+        time.sleep(0.2)     # wait for a while ( > 1ms * 4)
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"FA0\r")  # EPI + EI
+        self.dut.send(b"F\r")
+        self.assertEqual(self.dut.receive(), b"F00\r")  # check error clear
+        self.dut.send(b"f\r")
+        self.assertEqual(self.dut.receive(), b"f: node_sts=ER_PSSV, last_err_code=_ACK, err_cnt_tx_rx=[0x80, 0x00], est_bus_load_percent=00\r")
+
+        self.dut.send(b"C\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"-1\r")  # Enable auto retransmission
         self.assertEqual(self.dut.receive(), b"\r")
 
 
