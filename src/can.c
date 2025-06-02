@@ -612,7 +612,7 @@ HAL_StatusTypeDef can_set_mode(uint32_t mode)
     return HAL_OK;
 }
 
-// Set auto retransmit fucntion
+// Set auto retransmit function
 HAL_StatusTypeDef can_set_auto_retransmit(FunctionalState state)
 {
     if (can_bus_state == BUS_OPENED)
