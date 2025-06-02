@@ -83,7 +83,7 @@ class ShortTestCase(unittest.TestCase):
         self.assertEqual(self.dut.receive(), b"\r")
 
 
-    def test_error_bus_off_only(self):
+    def test_error_bus_off_clear(self):
         #self.dut.print_on = True
         self.dut.send(b"-0\r")  # Disable auto retransmission
         self.assertEqual(self.dut.receive(), b"\r")
@@ -125,7 +125,7 @@ class ShortTestCase(unittest.TestCase):
             self.assertEqual(self.dut.receive(), b"z\r")
         time.sleep(0.2)     # wait for a while ( > 1ms * 1)
         self.dut.send(b"F\r")
-        self.assertEqual(self.dut.receive(), b"F84\r")  # BEI + EI  bus off transition creates error warning. same as SJA1000
+        self.assertEqual(self.dut.receive(), b"F80\r")  # BEI
         self.dut.send(b"F\r")
         self.assertEqual(self.dut.receive(), b"F00\r")  # check error clear
         self.dut.send(b"f\r")

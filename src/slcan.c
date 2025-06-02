@@ -1100,7 +1100,6 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
             status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
             status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
             status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
-            status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
 
             char* stsstr = (char*)buf_get_cdc_dest();
             snprintf(stsstr, SLCAN_MTU - 1, "F%02X\r", status);
