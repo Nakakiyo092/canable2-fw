@@ -146,14 +146,15 @@ HAL_StatusTypeDef can_enable(void)
 
         // This is a must for high data bit rates, especially for isolated transceivers
         uint32_t offset = can_handle.Init.DataPrescaler * can_handle.Init.DataTimeSeg1;
-        if (offset <= 0x7F)
+        if (offset <= 0x50)
         {
             if (HAL_FDCAN_ConfigTxDelayCompensation(&can_handle, offset, 0) != HAL_OK) return HAL_ERROR;
             if (HAL_FDCAN_EnableTxDelayCompensation(&can_handle) != HAL_OK) return HAL_ERROR;
         }
         else
         {
-            // Corresponds to bitrate ~ 1Mbps when offset = 0x7F, compensation would not be a must
+            // The offset value 0x50 corresponds to bitrate 1Mbps @ 50% sampling point or 2Mbps @ 100% sampling point.
+            // Turn off at 1Mbps and Turn on at 2Mbps
             HAL_FDCAN_DisableTxDelayCompensation(&can_handle);
         }
 
