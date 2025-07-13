@@ -627,7 +627,8 @@ uint16_t slcan_get_timestamp_ms(void)
 }
 
 // Gets micro second timestamp (4bytes, MAX 3600,000,000us)
-uint32_t slcan_get_timestamp_us_from_tim3(uint16_t tim3_us);
+uint32_t slcan_get_timestamp_us_from_tim3(uint16_t tim3_us)
+{
     static uint32_t slcan_last_timestamp_us = 0;
     static uint32_t slcan_last_time_ms = 0;
     static uint16_t slcan_last_time_us = 0;
@@ -826,15 +827,15 @@ void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
                 if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
                 {
                     char* tmsstr = (char*)buf_get_cdc_dest();
-                    snprintf(numstr, SLCAN_MTU - 1, "Z%04X\r", slcan_get_timestamp_ms());
+                    snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X\r", slcan_get_timestamp_ms());
                     buf_comit_cdc_dest(6);
                 }
                 else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
                 {
                     char* tmsstr = (char*)buf_get_cdc_dest();
-                    utin32_t tms_us = slcan_get_timestamp_us_from_tim3(TIM3->CNT);
-                    snprintf(numstr, SLCAN_MTU - 1, "Z%08X\r", tms_us);
-                    buf_comit_cdc_dest(6);
+                    uint32_t tms_us = slcan_get_timestamp_us_from_tim3(TIM3->CNT);
+                    snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X%04X\r", (uint16_t)((tms_us>>16)&0xFFFF), (uint16_t)(tms_us&0xFFFF));
+                    buf_comit_cdc_dest(10);
                 }
                 else
                 {
