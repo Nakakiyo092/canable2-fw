@@ -615,10 +615,7 @@ uint16_t slcan_get_timestamp_ms(void)
     uint32_t current_time_ms = HAL_GetTick();
     uint32_t time_diff_ms;
 
-    if (slcan_last_time_ms <= current_time_ms)
-        time_diff_ms = current_time_ms - slcan_last_time_ms;
-    else
-        time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
+    time_diff_ms = (uint32_t)(current_time_ms - slcan_last_time_ms);
 
     slcan_last_timestamp_ms = (uint16_t)(((uint32_t)slcan_last_timestamp_ms + time_diff_ms % 60000) % 60000);
     slcan_last_time_ms = current_time_ms;
@@ -638,21 +635,22 @@ uint32_t slcan_get_timestamp_us_from_tim3(uint16_t tim3_us)
     uint32_t time_diff_ms;
     uint64_t time_diff_us;
     uint64_t n_comp;
-    uint32_t t_comp_us = ((uint64_t)UINT16_MAX + 1);                // MAX 0x10000
 
-    if (slcan_last_time_ms <= current_time_ms)
-        time_diff_ms = current_time_ms - slcan_last_time_ms;
-    else
-        time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
-
+    time_diff_ms = (uint32_t)(current_time_ms - slcan_last_time_ms);
     time_diff_us = (uint64_t)((uint16_t)(current_time_us - slcan_last_time_us));
 
-    // Compensate overflow of micro second counter
-    if (t_comp_us != 0)     // Proper bit time only (avoid zero-div)
+    if (time_diff_ms <= 10 && time_diff_us > UINT16_MAX / 2)
     {
-        n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);    // MAX 0xFFFFFFFF * 1000, 0xFFFF, 0x10000
-        n_comp = n_comp / t_comp_us;                            // MAX 0xFFFF * 1000 + ?
-        time_diff_us = time_diff_us + n_comp * t_comp_us;       // MAX 0xFFFF * 1000 * 0x10000
+        // Assume tim3 was sampled before the last timestamp
+        // The amount of reversal should be close to the main loop (~100us) 
+        time_diff_us = (uint64_t)3600000000 - (uint32_t)(slcan_last_time_us - current_time_us);
+    }
+    else
+    {
+        // Compensate overflow of micro second counter
+        n_comp = ((uint64_t)UINT16_MAX / 2 + time_diff_ms * 1000 - time_diff_us);   // MAX 0x10000, 0xFFFFFFFF * 1000, 0xFFFF
+        n_comp = n_comp / ((uint64_t)UINT16_MAX + 1);                               // MAX 0xFFFF * 1000 + ?
+        time_diff_us = time_diff_us + n_comp * ((uint64_t)UINT16_MAX + 1);          // MAX 0xFFFF * 1000 * 0x10000
     }
 
     slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 3600000000);
@@ -816,47 +814,46 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
 // Set report mode
 void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
 {
+    // Get timestamp
+    if (buf[0] == 'Z' && len == 1)
+    {
+        // Check timestamp mode
+        if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
+        {
+            char* tmsstr = (char*)buf_get_cdc_dest();
+            snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X\r", slcan_get_timestamp_ms());
+            buf_comit_cdc_dest(6);
+        }
+        else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
+        {
+            char* tmsstr = (char*)buf_get_cdc_dest();
+            uint32_t tms_us = slcan_get_timestamp_us_from_tim3(TIM3->CNT);
+            snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X%04X\r", (uint16_t)((tms_us>>16)&0xFFFF), (uint16_t)(tms_us&0xFFFF));
+            buf_comit_cdc_dest(10);
+        }
+        else
+        {
+            buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        }
+        return;
+    }
+
     // Set report mode
     if (can_get_bus_state() == BUS_CLOSED)
     {
         if (buf[0] == 'Z')
         {
-            if (len == 1)
+            // Check for valid command
+            if (len != 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
             {
-                // Check timestamp mode
-                if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
-                {
-                    char* tmsstr = (char*)buf_get_cdc_dest();
-                    snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X\r", slcan_get_timestamp_ms());
-                    buf_comit_cdc_dest(6);
-                }
-                else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
-                {
-                    char* tmsstr = (char*)buf_get_cdc_dest();
-                    uint32_t tms_us = slcan_get_timestamp_us_from_tim3(TIM3->CNT);
-                    snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X%04X\r", (uint16_t)((tms_us>>16)&0xFFFF), (uint16_t)(tms_us&0xFFFF));
-                    buf_comit_cdc_dest(10);
-                }
-                else
-                {
-                    buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                    return;
-                }
-            }
-            else
-            {
-                // Check for valid command
-                if (len != 2 || SLCAN_TIMESTAMP_INVALID <= buf[1])
-                {
-                    buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
-                    return;
-                }
-
-                slcan_timestamp_mode = buf[1];
-                slcan_report_reg = 1;   // Default: no timestamp, no ESI, no Tx, but with Rx
-                buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
+                buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
                 return;
             }
+
+            slcan_timestamp_mode = buf[1];
+            slcan_report_reg = 1;   // Default: no timestamp, no ESI, no Tx, but with Rx
+            buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
+            return;
         }
         else if (buf[0] == 'z')
         {
