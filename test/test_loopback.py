@@ -345,6 +345,33 @@ class LoopbackTestCase(unittest.TestCase):
         self.assertEqual(self.dut.receive(), b"\r")
 
 
+    def test_timestamp_consistency(self):
+        #self.dut.print_on = True
+
+        # Compare timestamp for a Z[CR] command and for a received CAN frame
+        self.dut.send(b"S8\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"z2001\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"=\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"Z\rt03F0\r")
+        rx_data = self.dut.receive() + self.dut.receive()
+        last_timestamp = rx_data[len(b"Z"):len(b"Z") + 8]
+        last_time_us = int(last_timestamp.decode(), 16)
+        crnt_timestamp = rx_data[len(b"ZXXXXXXXX\rz\rzt03F0"):len(b"ZXXXXXXXX\rz\rzt03F0") + 8]
+        crnt_time_us = int(last_timestamp.decode(), 16)
+        if crnt_time_us > last_time_us:
+            diff_time_us = crnt_time_us - last_time_us
+        else:
+            diff_time_us = (0x100000000 + crnt_time_us) - last_time_us
+
+        # Difference should be less than time to send the frame (~100us) + main loop cycle (~100us)
+        self.assertLess(diff_time_us, 300)
+        self.dut.send(b"C\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+
+
     def test_timestamp_accuracy_milli(self):
         #self.dut.print_on = True
 
