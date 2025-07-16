@@ -643,7 +643,7 @@ uint32_t slcan_get_timestamp_us_from_tim3(uint16_t tim3_us)
     {
         // Assume tim3 was sampled before the last timestamp
         // The amount of reversal should be close to the main loop (~100us) 
-        time_diff_us = (uint64_t)3600000000 - (uint32_t)(slcan_last_time_us - current_time_us);
+        time_diff_us = (uint64_t)3600000000 - (uint16_t)(slcan_last_time_us - current_time_us);
     }
     else
     {
