@@ -366,8 +366,8 @@ class LoopbackTestCase(unittest.TestCase):
         else:
             diff_time_us = (0x100000000 + crnt_time_us) - last_time_us
 
-        # Difference should be less than time to send the frame (~100us) + main loop cycle (~100us)
-        self.assertLess(diff_time_us, 300)
+        # Difference should be less than time to send the frame (~50us) + main loop cycle (~100us)
+        self.assertLess(diff_time_us, 200)
         self.dut.send(b"C\r")
         self.assertEqual(self.dut.receive(), b"\r")
 
