@@ -313,7 +313,7 @@ class LoopbackTestCase(unittest.TestCase):
         if crnt_time_us > last_time_us:
             diff_time_us = crnt_time_us - last_time_us
         else:
-            diff_time_us = (0x100000000 + crnt_time_us) - last_time_us
+            diff_time_us = (3600000000 + crnt_time_us) - last_time_us
 
         # Proving 2% accuracy. 600ms should be acceptable for USB latency.
         self.assertLess(abs(sleep_time_us - diff_time_us), 600 * 1000)
@@ -359,12 +359,12 @@ class LoopbackTestCase(unittest.TestCase):
         rx_data = self.dut.receive() + self.dut.receive()
         last_timestamp = rx_data[len(b"Z"):len(b"Z") + 8]
         last_time_us = int(last_timestamp.decode(), 16)
-        crnt_timestamp = rx_data[len(b"ZXXXXXXXX\rz\rzt03F0"):len(b"ZXXXXXXXX\rz\rzt03F0") + 8]
-        crnt_time_us = int(last_timestamp.decode(), 16)
+        crnt_timestamp = rx_data[len(b"ZXXXXXXXX\rz\rt03F0"):len(b"ZXXXXXXXX\rz\rt03F0") + 8]
+        crnt_time_us = int(crnt_timestamp.decode(), 16)
         if crnt_time_us > last_time_us:
             diff_time_us = crnt_time_us - last_time_us
         else:
-            diff_time_us = (0x100000000 + crnt_time_us) - last_time_us
+            diff_time_us = (3600000000 + crnt_time_us) - last_time_us
 
         # Difference should be less than time to send the frame (~50us) + main loop cycle (~100us)
         self.assertLess(diff_time_us, 200)
