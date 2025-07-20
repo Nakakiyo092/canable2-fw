@@ -92,8 +92,7 @@ void buf_process(void)
     uint32_t new_tail = (buf_cdc_tx.tail + 1UL) % BUF_CDC_TX_NUM_BUFS;
     if (new_tail != buf_cdc_tx.head)
     {
-        for (uint32_t i = 0; i < buf_cdc_tx.msglen[new_tail]; i++)
-            tud_cdc_n_write_char(0, buf_cdc_tx.data[new_tail][i]);
+        tud_cdc_n_write(0, buf_cdc_tx.data[new_tail], buf_cdc_tx.msglen[new_tail]);
         tud_cdc_n_write_flush(0);
         buf_cdc_tx.tail = new_tail;
     }
