@@ -325,6 +325,30 @@ class SlcanTestCase(unittest.TestCase):
 
 
     def test_Z_command(self):
+        # Without option
+        # check response to Z with timestamp disabled
+        self.dut.send(b"Z0\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"Z\r")
+        self.assertEqual(self.dut.receive(), b"\a")
+
+        # check response to Z with ms timestamp
+        self.dut.send(b"Z1\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"Z\r")
+        rx_data = self.dut.receive()
+        self.assertEqual(len(rx_data), len(b"Zxxxx\r"))
+        self.assertEqual(rx_data[0], b"Zxxxx\r"[0])
+
+        # check response to Z with us timestamp
+        self.dut.send(b"Z2\r")
+        self.assertEqual(self.dut.receive(), b"\r")
+        self.dut.send(b"Z\r")
+        rx_data = self.dut.receive()
+        self.assertEqual(len(rx_data), len(b"Zxxxxxxxx\r"))
+        self.assertEqual(rx_data[0], b"Zxxxxxxxx\r"[0])
+
+        # With option
         # check response to Z with CAN port closed
         for idx in range(0, 10):
             cmd = "Z" + str(idx) + "\r"
@@ -355,8 +379,6 @@ class SlcanTestCase(unittest.TestCase):
         self.assertEqual(self.dut.receive(), b"\r")
 
         # invalid format
-        self.dut.send(b"Z\r")
-        self.assertEqual(self.dut.receive(), b"\a")
         self.dut.send(b"Z00\r")
         self.assertEqual(self.dut.receive(), b"\a")
         self.dut.send(b"ZG\r")

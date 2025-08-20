@@ -63,6 +63,8 @@ static uint32_t slcan_filter_mask = 0xFFFFFFFF;
 // Private methods
 static int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uint8_t *frame_data);
 static HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len);
+static uint16_t slcan_get_timestamp_ms(void);
+static uint32_t slcan_get_timestamp_us_from_tim3(uint16_t tim3_us);
 static void slcan_parse_str_open(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_loop(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_close(uint8_t *buf, uint8_t len);
@@ -71,6 +73,7 @@ static void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_mode(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_code(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len);
+static void slcan_parse_str_set_auto_retransmit(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_version(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_can_info(uint8_t *buf, uint8_t len);
 static void slcan_parse_str_number(uint8_t *buf, uint8_t len);
@@ -160,61 +163,27 @@ int32_t slcan_parse_frame(uint8_t *buf, FDCAN_RxHeaderTypeDef *frame_header, uin
     }
 
     // Add time stamp
-    static uint16_t slcan_last_timestamp_ms = 0;
-    static uint32_t slcan_last_timestamp_us = 0;
-    static uint32_t slcan_last_time_ms = 0;
-    static uint16_t slcan_last_time_us = 0;
     if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
     {
-        uint32_t current_time_ms = HAL_GetTick();
-        uint32_t time_diff_ms;
+        uint16_t timestamp_ms = slcan_get_timestamp_ms();
 
-        time_diff_ms = (uint32_t)(current_time_ms - slcan_last_time_ms);
-
-        slcan_last_timestamp_ms = (uint16_t)(((uint32_t)slcan_last_timestamp_ms + time_diff_ms % 60000) % 60000);
-        slcan_last_time_ms = current_time_ms;
-
-        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 12) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 8) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_ms >> 4) & 0xF);
-        buf[msg_idx++] = (slcan_last_timestamp_ms & 0xF);
+        buf[msg_idx++] = ((timestamp_ms >> 12) & 0xF);
+        buf[msg_idx++] = ((timestamp_ms >> 8) & 0xF);
+        buf[msg_idx++] = ((timestamp_ms >> 4) & 0xF);
+        buf[msg_idx++] = (timestamp_ms & 0xF);
     }
     else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
     {
-        uint32_t current_time_ms = HAL_GetTick();
-        uint16_t current_time_us = frame_header->RxTimestamp; // MAX 0xFFFF
-        uint32_t time_diff_ms;
-        uint64_t time_diff_us;
-        uint64_t n_comp;
-        uint32_t t_comp_us = ((uint64_t)UINT16_MAX + 1);                // MAX 0x10000
+        uint32_t timestamp_us = slcan_get_timestamp_us_from_tim3(frame_header->RxTimestamp);
 
-        if (slcan_last_time_ms <= current_time_ms)
-            time_diff_ms = current_time_ms - slcan_last_time_ms;
-        else
-            time_diff_ms = UINT32_MAX - slcan_last_time_ms + 1 + current_time_ms;
-
-        time_diff_us = (uint64_t)((uint16_t)(current_time_us - slcan_last_time_us));
-
-        // Compensate overflow of micro second counter
-        if (t_comp_us != 0)     // Proper bit time only (avoid zero-div)
-        {
-            n_comp = ((uint64_t)time_diff_ms * 1000 - time_diff_us + t_comp_us / 2);    // MAX 0xFFFFFFFF * 1000, 0xFFFF, 0x10000
-            n_comp = n_comp / t_comp_us;                            // MAX 0xFFFF * 1000 + ?
-            time_diff_us = time_diff_us + n_comp * t_comp_us;       // MAX 0xFFFF * 1000 * 0x10000
-        }
-
-        slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 3600000000);
-        slcan_last_time_ms = current_time_ms;
-        slcan_last_time_us = current_time_us;
-
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 28) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 24) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 20) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 16) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 12) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 8) & 0xF);
-        buf[msg_idx++] = ((slcan_last_timestamp_us >> 4) & 0xF);
-        buf[msg_idx++] = (slcan_last_timestamp_us & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 28) & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 24) & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 20) & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 16) & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 12) & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 8) & 0xF);
+        buf[msg_idx++] = ((timestamp_us >> 4) & 0xF);
+        buf[msg_idx++] = (timestamp_us & 0xF);
     }
     
     // Add error state indicator
@@ -375,6 +344,10 @@ void slcan_parse_str(uint8_t *buf, uint8_t len)
     // Set filter mask
     case 'm':
         slcan_parse_str_filter_mask(buf, len);
+        return;
+    // Set auto retransmit
+    case '-':
+        slcan_parse_str_set_auto_retransmit(buf, len);
         return;
     // Set auto startup mode
     case 'Q':
@@ -633,6 +606,60 @@ HAL_StatusTypeDef slcan_convert_str_to_number(uint8_t *buf, uint8_t len)
     return HAL_OK;
 }
 
+// Gets milli second timestamp (2bytes, MAX 60,000ms)
+uint16_t slcan_get_timestamp_ms(void)
+{
+    static uint16_t slcan_last_timestamp_ms = 0;
+    static uint32_t slcan_last_time_ms = 0;
+
+    uint32_t current_time_ms = HAL_GetTick();
+    uint32_t time_diff_ms;
+
+    time_diff_ms = (uint32_t)(current_time_ms - slcan_last_time_ms);
+
+    slcan_last_timestamp_ms = (uint16_t)(((uint32_t)slcan_last_timestamp_ms + time_diff_ms % 60000) % 60000);
+    slcan_last_time_ms = current_time_ms;
+
+    return slcan_last_timestamp_ms;
+}
+
+// Gets micro second timestamp (4bytes, MAX 3600,000,000us)
+uint32_t slcan_get_timestamp_us_from_tim3(uint16_t tim3_us)
+{
+    static uint32_t slcan_last_timestamp_us = 0;
+    static uint32_t slcan_last_time_ms = 0;
+    static uint16_t slcan_last_time_us = 0;
+
+    uint32_t current_time_ms = HAL_GetTick();
+    uint16_t current_time_us = tim3_us; // MAX 0xFFFF
+    uint32_t time_diff_ms;
+    uint64_t time_diff_us;
+    uint64_t n_comp;
+
+    time_diff_ms = (uint32_t)(current_time_ms - slcan_last_time_ms);
+    time_diff_us = (uint64_t)((uint16_t)(current_time_us - slcan_last_time_us));
+
+    if (time_diff_ms <= 1 && time_diff_us > UINT16_MAX / 2)
+    {
+        // Assume tim3 was sampled before the last timestamp
+        // The amount of reversal should be close to the main loop (~100us) 
+        time_diff_us = (uint64_t)3600000000 - (uint16_t)(slcan_last_time_us - current_time_us);
+    }
+    else
+    {
+        // Compensate overflow of micro second counter
+        n_comp = ((uint64_t)UINT16_MAX / 2 + time_diff_ms * 1000 - time_diff_us);   // MAX 0x10000, 0xFFFFFFFF * 1000, 0xFFFF
+        n_comp = n_comp / ((uint64_t)UINT16_MAX + 1);                               // MAX 0xFFFF * 1000 + ?
+        time_diff_us = time_diff_us + n_comp * ((uint64_t)UINT16_MAX + 1);          // MAX 0xFFFF * 1000 * 0x10000
+    }
+
+    slcan_last_timestamp_us = (uint32_t)(((uint64_t)slcan_last_timestamp_us + time_diff_us) % 3600000000);
+    slcan_last_time_ms = current_time_ms;
+    slcan_last_time_us = current_time_us;
+
+    return slcan_last_timestamp_us;
+}
+
 // Open channel
 void slcan_parse_str_open(uint8_t *buf, uint8_t len)
 {
@@ -787,6 +814,30 @@ void slcan_parse_str_set_bitrate(uint8_t *buf, uint8_t len)
 // Set report mode
 void slcan_parse_str_report_mode(uint8_t *buf, uint8_t len)
 {
+    // Get timestamp
+    if (buf[0] == 'Z' && len == 1)
+    {
+        // Check timestamp mode
+        if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MILLI)
+        {
+            char* tmsstr = (char*)buf_get_cdc_dest();
+            snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X\r", slcan_get_timestamp_ms());
+            buf_comit_cdc_dest(6);
+        }
+        else if (slcan_timestamp_mode == SLCAN_TIMESTAMP_MICRO)
+        {
+            char* tmsstr = (char*)buf_get_cdc_dest();
+            uint32_t tms_us = slcan_get_timestamp_us_from_tim3(TIM3->CNT);
+            snprintf(tmsstr, SLCAN_MTU - 1, "Z%04X%04X\r", (uint16_t)((tms_us>>16)&0xFFFF), (uint16_t)(tms_us&0xFFFF));
+            buf_comit_cdc_dest(10);
+        }
+        else
+        {
+            buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        }
+        return;
+    }
+
     // Set report mode
     if (can_get_bus_state() == BUS_CLOSED)
     {
@@ -964,6 +1015,39 @@ void slcan_parse_str_filter_mask(uint8_t *buf, uint8_t len)
     }
 }
 
+
+// Set auto retransmit
+static void slcan_parse_str_set_auto_retransmit(uint8_t *buf, uint8_t len)
+{
+    // Set auto retransmit
+    if (can_get_bus_state() == BUS_CLOSED)
+    {
+        // Check for valid command
+        if (len != 2 || 2 <= buf[1])
+        {
+            buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        // Apply the state
+        if (can_set_auto_retransmit((buf[1] == 0) ? DISABLE : ENABLE) != HAL_OK)
+        {
+            buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+            return;
+        }
+
+        buf_enqueue_cdc(SLCAN_RET_OK, SLCAN_RET_LEN);
+        return;
+    }
+    // Command can only be sent if the device is initiated but not open.
+    else
+    {
+        buf_enqueue_cdc(SLCAN_RET_ERR, SLCAN_RET_LEN);
+        return;
+    }
+}
+
+
 // Get version number in standard + detailed style
 void slcan_parse_str_version(uint8_t *buf, uint8_t len)
 {
@@ -1062,7 +1146,6 @@ void slcan_parse_str_status(uint8_t *buf, uint8_t len)
             status = ((err_reg >> ERR_CAN_BUS_ERR) & 1) ? (status | (1 << SLCAN_STS_BUS_ERROR)) : status;
             status = ((err_reg >> ERR_CAN_WARNING) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
             status = ((err_reg >> ERR_CAN_ERR_PASSIVE) & 1) ? (status | (1 << SLCAN_STS_ERROR_PASSIVE)) : status;
-            status = ((err_reg >> ERR_CAN_BUS_OFF) & 1) ? (status | (1 << SLCAN_STS_ERROR_WARNING)) : status;
 
             char* stsstr = (char*)buf_get_cdc_dest();
             snprintf(stsstr, SLCAN_MTU - 1, "F%02X\r", status);
