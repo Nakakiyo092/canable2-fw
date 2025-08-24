@@ -1,4 +1,4 @@
-Welcome to the SLCAN CANable 2.0 firmware [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki)!
+Welcome to the slcan CANable 2.0 firmware [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki)!
 
 The CANable 2.0 device was originally developed by [Openlight Labs](https://openlightlabs.com/).
 This document describes the behavior of an alternative firmware released [here](https://github.com/Nakakiyo092/canable2-fw).
