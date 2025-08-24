@@ -32,7 +32,7 @@ Your Linux distribution may also have a prebuilt package for `arm-none-eabi-gcc`
 
 ## Flashing with the Bootloader
 
-Plug in your CANable2 while boot pins are shorted with jumper. Neither the blue nor the green LED should be illuminated. Next, type `make flash` and your CANable will be updated to the latest firwmare. Unplug/replug the device after moving the boot jumper back, and your CANable2 will be up and running.
+Plug in your CANable2 while boot pins are shorted with jumper. Neither the blue nor the green LED should be illuminated. Next, type `make flash` and your CANable will be updated to the latest firmware. Unplug/replug the device after moving the boot jumper back, and your CANable2 will be up and running.
 
 ## License
 
