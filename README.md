@@ -17,7 +17,7 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 - `V` and `v` - Returns firmware version and remote path as a string
 - `Z` and `z` - Configures reporting mechanism including time stamp and Tx event
 - `M` and `m` - Configures CAN acceptance filter
-- `F` and `f` - Returns status flags and detailed status
+- `F` - Returns status flags
 
 Please find more information in the `doc` directory or the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
 
