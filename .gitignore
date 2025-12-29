@@ -1,3 +1,4 @@
-test/__pycache__/*
+ref/*
 build/*
+test/__pycache__/*
 .vscode/*
