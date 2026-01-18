@@ -42,3 +42,7 @@ int main(void)
         tud_task();
     }
 }
+
+// TinyUSB reference
+// Buffer size: https://github.com/hathach/tinyusb/discussions/2018
+// Max speed:   https://github.com/hathach/tinyusb/discussions/2805
