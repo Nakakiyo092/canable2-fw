@@ -21,6 +21,14 @@ This repository contains sources for the slcan CANable 2.0 firmware. This firmwa
 
 Please find more information in the `doc` directory or the [wiki](https://github.com/Nakakiyo092/canable2-fw/wiki).
 
+## Dependencies
+
+On Ubuntu, the required tools can be installed with:
+
+```bash
+sudo apt install gcc-arm-none-eabi dfu-util git
+```
+
 ## Building
 
 Firmware builds with GCC. Specifically, you will need gcc-arm-none-eabi, which
