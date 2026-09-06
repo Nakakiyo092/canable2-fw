@@ -360,6 +360,8 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
         return HAL_ERROR;
     }
 
+    // peripheral clock speed 160M
+
     // Set default bitrate 125k
     can_bitrate_nominal.prescaler = 16;
     can_bitrate_nominal.sjw = 8;
@@ -377,6 +379,12 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
     case CAN_BITRATE_50K:
         can_bitrate_nominal.prescaler = 40;
         break;
+    case CAN_BITRATE_83K:
+        can_bitrate_nominal.prescaler = 120;
+        can_bitrate_nominal.sjw = 2;
+        can_bitrate_nominal.time_seg1 = 13;
+        can_bitrate_nominal.time_seg2 = 2;
+        break;
     case CAN_BITRATE_100K:
         can_bitrate_nominal.prescaler = 20;
         break;
@@ -387,6 +395,12 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
         break;
     case CAN_BITRATE_500K:
         can_bitrate_nominal.prescaler = 4;
+        break;
+    case CAN_BITRATE_666K:
+        can_bitrate_nominal.prescaler = 30;
+        can_bitrate_nominal.sjw = 1;
+        can_bitrate_nominal.time_seg1 = 6;
+        can_bitrate_nominal.time_seg2 = 1;
         break;
     case CAN_BITRATE_800K:
         can_bitrate_nominal.prescaler = 2;
