@@ -364,9 +364,9 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
 
     // Set default bitrate 125k
     can_bitrate_nominal.prescaler = 16;
-    can_bitrate_nominal.sjw = 8;
-    can_bitrate_nominal.time_seg1 = 70;
-    can_bitrate_nominal.time_seg2 = 9;
+    can_bitrate_nominal.sjw = 16;
+    can_bitrate_nominal.time_seg1 = 63;
+    can_bitrate_nominal.time_seg2 = 16;
 
     switch (bitrate)
     {
@@ -404,9 +404,9 @@ HAL_StatusTypeDef can_set_bitrate(enum can_bitrate bitrate)
         break;
     case CAN_BITRATE_800K:
         can_bitrate_nominal.prescaler = 2;
-        can_bitrate_nominal.sjw = 10;
-        can_bitrate_nominal.time_seg1 = 88;
-        can_bitrate_nominal.time_seg2 = 11;
+        can_bitrate_nominal.sjw = 20;
+        can_bitrate_nominal.time_seg1 = 79;
+        can_bitrate_nominal.time_seg2 = 20;
         break;
     case CAN_BITRATE_1000K:
         can_bitrate_nominal.prescaler = 2;
@@ -428,35 +428,32 @@ HAL_StatusTypeDef can_set_data_bitrate(enum can_data_bitrate bitrate)
     }
 
     // Set default bitrate 2M
-    can_bitrate_data.prescaler = 2;
-    can_bitrate_data.sjw = 8;
-    can_bitrate_data.time_seg1 = 30;
-    can_bitrate_data.time_seg2 = 9;
+    can_bitrate_data.prescaler = 4;
+    can_bitrate_data.sjw = 9;
+    can_bitrate_data.time_seg1 = 9;
+    can_bitrate_data.time_seg2 = 10;
 
     switch (bitrate)
     {
     case CAN_DATA_BITRATE_500K:
-        can_bitrate_data.prescaler = 8;
+        can_bitrate_data.prescaler = 16;
         break;
     case CAN_DATA_BITRATE_1M:
-        can_bitrate_data.prescaler = 4;
+        can_bitrate_data.prescaler = 8;
         break;
     case CAN_DATA_BITRATE_2M:
         break;
     case CAN_DATA_BITRATE_4M:
-        can_bitrate_data.prescaler = 1;
+        can_bitrate_data.prescaler = 2;
         break;
     case CAN_DATA_BITRATE_5M:
         can_bitrate_data.prescaler = 1;
-        can_bitrate_data.sjw = 6;
-        can_bitrate_data.time_seg1 = 24;
-        can_bitrate_data.time_seg2 = 7;
+        can_bitrate_data.sjw = 15;
+        can_bitrate_data.time_seg1 = 15;
+        can_bitrate_data.time_seg2 = 16;
         break;
     case CAN_DATA_BITRATE_8M:
         can_bitrate_data.prescaler = 1;
-        can_bitrate_data.sjw = 3;
-        can_bitrate_data.time_seg1 = 14;
-        can_bitrate_data.time_seg2 = 5;
         break;
     default:
         return HAL_ERROR;
