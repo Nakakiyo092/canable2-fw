@@ -1,5 +1,10 @@
 # Benchmark for ver.1.4.0
 
+> **Note:** The CDC speed, CAN communication and CAN stress tests were run with
+> an older Python (3.10.11) by mistake; the long time test was run with 3.13.14.
+> Results that depend on host-side timing may not be directly comparable with
+> other versions (e.g. v1.3.1 used Python 3.14.5).
+
 Commit ID: ae8b9fefac4c326021873675d8a8d5caa4ff4e1b
 
 ## Environment
