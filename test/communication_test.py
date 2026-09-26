@@ -8,11 +8,12 @@ from device_under_test import DeviceUnderTest
 
 
 # Characterization test for end-to-end two-device communication across
-# the full S x Y bit-rate grid. Categorised with the other *_test.py
-# benchmarks (cdc_speed_test.py, long_time_test.py) rather than the
-# test_*.py unittest CI suite: it requires special hardware setup and
-# takes a few minutes to run, so it is intended to be invoked manually
-# rather than picked up by `python -m unittest discover`.
+# the full S x Y bit-rate grid and across data-phase sample points.
+# Categorised with the other *_test.py benchmarks (cdc_speed_test.py,
+# long_time_test.py) rather than the test_*.py unittest CI suite: it
+# requires special hardware setup and takes a few minutes to run, so it
+# is intended to be invoked manually rather than picked up by
+# `python -m unittest discover`.
 #
 # Hardware setup:
 # - DUT: default port (COM9 on Windows, /dev/ttyACM0 on Linux)
@@ -27,7 +28,7 @@ from device_under_test import DeviceUnderTest
 class CommunicationTestCase(unittest.TestCase):
     """End-to-end two-device communication characterization.
 
-    Provides two methods with distinct roles:
+    Provides three methods with distinct roles:
 
     - test_bidirectional_within_safe_ratio is a hard pass/fail gate
       over (S, Y) combos whose data:nominal ratio is at or below
@@ -40,6 +41,11 @@ class CommunicationTestCase(unittest.TestCase):
       artefact, useful for visualising the operating envelope of a
       given hardware/firmware combination (e.g. crystal-precision
       vs ceramic-resonator devices show very different boundaries).
+
+    - test_sp_grid_report iterates (data bit rate x data SP) with a
+      fixed nominal bit rate and prints a table in the same way. It
+      NEVER fails either; it visualises which data-phase sample points
+      the hardware can communicate at.
     """
 
     FRAMES_PER_SIDE = 50
@@ -61,6 +67,18 @@ class CommunicationTestCase(unittest.TestCase):
     # test boundary chosen for this project; combos beyond it are
     # observed (not enforced) by test_full_grid_report.
     MAX_SAFE_RATIO = 16
+
+    # Grid for test_sp_grid_report. The nominal bit rate is fixed and
+    # not above the lowest data bit rate. SP below 20 % cannot be
+    # represented within the y field ranges.
+    SP_NOMINAL_S = 8                        # 1 Mbps
+    SP_DATA_KBPS = (1000, 2000, 4000, 5000, 8000, 10000, 16000, 20000)
+    SP_PERCENT = range(20, 100, 5)          # 20 .. 95 %
+
+    # Data bit timing field ranges accepted by the y command.
+    MAX_DATA_PRESCALER = 32
+    MAX_DATA_TSEG1 = 32
+    MAX_DATA_TSEG2 = 16
 
     dut: DeviceUnderTest
     aux: DeviceUnderTest
@@ -124,11 +142,43 @@ class CommunicationTestCase(unittest.TestCase):
         self._print_results_table(results)
 
 
+    def test_sp_grid_report(self):
+        """Diagnostic: iterate every (data bit rate, data SP) cell with
+        the nominal bit rate fixed to SP_NOMINAL_S, and produce a result
+        table on stdout. This test NEVER FAILS.
+
+        Each device uses the smallest prescaler that represents the SP
+        exactly with its own CAN clock (read with the I command), so
+        devices with different clocks can be paired. Cells that either
+        device cannot represent are skipped. Cells whose setup the
+        device rejects are reported as 'other', since the bit timing is
+        computed within the accepted ranges.
+        """
+        dut_clock_mhz = self._read_clock_mhz(self.dut)
+        aux_clock_mhz = self._read_clock_mhz(self.aux)
+        results = {}
+        for kbps in self.SP_DATA_KBPS:
+            for sp in self.SP_PERCENT:
+                dut_cfg = self._find_data_bit_timing(dut_clock_mhz, kbps, sp)
+                aux_cfg = self._find_data_bit_timing(aux_clock_mhz, kbps, sp)
+                if dut_cfg is None or aux_cfg is None:
+                    results[(kbps, sp)] = 'skip'
+                else:
+                    results[(kbps, sp)] = self._classify(
+                        self._run_one_sp_cell, kbps, sp, dut_cfg, aux_cfg)
+        self._print_sp_results_table(results, dut_clock_mhz, aux_clock_mhz)
+
+
     def _try_one_combo(self, s, y):
-        """Run one combo and classify by the CAN node state inferred
-        from the F flags reported by either device. Frame loss is NOT
-        a separate outcome here — under continuous bus errors the
-        frames sit in the firmware's tx queue while auto-retransmit
+        """Run one (S, Y) combo and classify the outcome (see _classify)."""
+        return self._classify(self._run_one_combo, s, y)
+
+
+    def _classify(self, run, *args):
+        """Run one combo/cell and classify by the CAN node state
+        inferred from the F flags reported by either device. Frame loss
+        is NOT a separate outcome here — under continuous bus errors
+        the frames sit in the firmware's tx queue while auto-retransmit
         keeps retrying, so any 'missing frame' on the wire is a
         symptom of the node-state transition, not the root cause.
 
@@ -142,7 +192,7 @@ class CommunicationTestCase(unittest.TestCase):
                        mismatch with F=00 — rare measurement noise)
         """
         try:
-            self._run_one_combo(s, y)
+            run(*args)
             return 'pass'
         except unittest.SkipTest:
             return 'skip'
@@ -196,61 +246,120 @@ class CommunicationTestCase(unittest.TestCase):
         print("=" * 64)
 
 
+    def _print_sp_results_table(self, results, dut_clock_mhz, aux_clock_mhz):
+        """Render the (data SP, data bit rate) result grid to stdout."""
+        symbol = {
+            'pass':    '   . ',
+            'skip':    '   - ',
+            'busErr':  '   E ',
+            'passive': '   P ',
+            'busOff':  '   O ',
+            'other':   '   ? ',
+        }
+        tally = {}
+        for v in results.values():
+            tally[v] = tally.get(v, 0) + 1
+
+        print()
+        print("=" * 64)
+        print(f"test_sp_grid_report  (nominal S{self.SP_NOMINAL_S}, rows = data SP, columns = data bit rate)")
+        print(f"CAN clock: DUT {dut_clock_mhz} MHz, AUX {aux_clock_mhz} MHz")
+        print("Legend: .=pass  E=bus_error  P=passive  O=bus-off  -=not representable  ?=other")
+        print()
+        header = "      " + "".join(f"{kbps // 1000:>4}M" for kbps in self.SP_DATA_KBPS)
+        print(header)
+        for sp in self.SP_PERCENT:
+            row = f" {sp:>3}% "
+            for kbps in self.SP_DATA_KBPS:
+                row += symbol.get(results.get((kbps, sp), 'other'), '   ? ')
+            print(row)
+        print()
+        summary = "  ".join(f"{k}={tally.get(k, 0)}"
+                            for k in ('pass', 'busErr', 'passive', 'busOff', 'skip', 'other'))
+        print(f"summary:  {summary}")
+        print("=" * 64)
+
+
     def _run_one_combo(self, s, y):
-        """Run one (S, Y) combo: setup, send 50 frames each, verify, close.
+        """Run one (S, Y) combo: setup, then exchange frames.
 
         Setup is wrapped in skipTest so unsupported bitrates are skipped
-        with a clear message rather than failing the subTest. The
-        send/verify block is wrapped in try/finally so the CAN channel
-        on both devices is always closed, even when an assertion fails
-        — otherwise a leftover open channel would cause the very next
-        subTest's S/Y commands to be rejected with [BELL].
+        with a clear message rather than failing the subTest.
         """
-        # 1. Set S and Y on both devices; [BELL] -> skip this combo.
+        # Set S and Y on both devices; [BELL] -> skip this combo.
         self._set_bitrate_or_skip(self.dut, "DUT", b"S", s)
         self._set_bitrate_or_skip(self.aux, "AUX", b"S", s)
         self._set_bitrate_or_skip(self.dut, "DUT", b"Y", y)
         self._set_bitrate_or_skip(self.aux, "AUX", b"Y", y)
 
-        # 2. Build frame lists.
+        self._exchange_frames(f"S{s}Y{y}")
+
+
+    def _run_one_sp_cell(self, kbps, sp, dut_cfg, aux_cfg):
+        """Run one (data bit rate, data SP) cell: setup with S and a
+        custom y per device, then exchange frames."""
+        label = f"{kbps // 1000}M@{sp}%"
+        dut_y = "y" + "".join(f"{v:02X}" for v in dut_cfg)
+        aux_y = "y" + "".join(f"{v:02X}" for v in aux_cfg)
+
+        for dev, name, y_cmd in [(self.dut, "DUT", dut_y), (self.aux, "AUX", aux_y)]:
+            for cmd in (f"S{self.SP_NOMINAL_S}", y_cmd):
+                dev.send(cmd.encode() + b"\r")
+                r = dev.receive()
+                self.assertEqual(r, b"\r",
+                                 f"{label}: {name} unexpected response to {cmd!r}: {r!r}")
+
+        self._exchange_frames(f"{label} (DUT {dut_y}, AUX {aux_y})")
+
+
+    def _exchange_frames(self, label):
+        """Open both devices, send 50 frames each, verify, close.
+
+        The send/verify block is wrapped in try/finally so the CAN
+        channel on both devices is always closed, even when an
+        assertion fails — otherwise a leftover open channel would cause
+        the very next combo's bitrate commands to be rejected with
+        [BELL].
+        """
+        # 1. Build frame lists.
         # DUT uses even IDs (0x000, 0x002, ..., 0x062);
         # AUX uses odd IDs  (0x001, 0x003, ..., 0x063).
         dut_frames = self._build_frames(start_id=0)
         aux_frames = self._build_frames(start_id=1)
 
         try:
-            # 3. Open both devices in normal mode.
+            # 2. Open both devices in normal mode.
             for dev, name in [(self.dut, "DUT"), (self.aux, "AUX")]:
                 dev.send(b"O\r")
                 self.assertEqual(dev.receive(), b"\r",
-                                 f"S{s}Y{y}: {name} failed to open in normal mode")
+                                 f"{label}: {name} failed to open in normal mode")
 
-            # 4. Send all 50 frames from each side (interleaved push).
+            # 3. Send all 50 frames from each side (interleaved push).
             for i in range(self.FRAMES_PER_SIDE):
                 self.dut.send(dut_frames[i])
                 self.aux.send(aux_frames[i])
 
-            # 5. Drain both sides until the bus is quiet.
+            # 4. Drain both sides until the bus is quiet.
             dut_rx = self._drain_until_quiet(self.dut)
             aux_rx = self._drain_until_quiet(self.aux)
 
-            # 6. Read F on both BEFORE asserting frame contents, so we
+            # 5. Read F on both BEFORE asserting frame contents, so we
             # always record the bus-error state even when frame loss
-            # would otherwise short-circuit the subTest at step 7.
+            # would otherwise short-circuit the check at step 6.
             self.dut.send(b"F\r")
             dut_f = self.dut.receive()
             self.aux.send(b"F\r")
             aux_f = self.aux.receive()
 
-            # 7. Collect both observations (frame loss and bus errors)
+            # 6. Collect both observations (frame loss and bus errors)
             # then fail with a single combined message.
             problems = []
             try:
-                self._assert_received(dut_rx, aux_frames, "DUT", s, y)
+                self._assert_received(dut_rx, aux_frames, "DUT", label)
             except AssertionError as e:
                 problems.append(f"DUT rx: {e}")
             try:
-                self._assert_received(aux_rx, dut_frames, "AUX", s, y)
+                self._assert_received(aux_rx, dut_frames, "AUX", label)
             except AssertionError as e:
                 problems.append(f"AUX rx: {e}")
             if dut_f != b"F00\r":
@@ -258,12 +367,13 @@ class CommunicationTestCase(unittest.TestCase):
             if aux_f != b"F00\r":
                 problems.append(f"AUX F={aux_f!r}")
             if problems:
-                self.fail(f"S{s}Y{y}: " + " | ".join(problems))
+                self.fail(f"{label}: " + " | ".join(problems))
         finally:
-            # 8. Always close both channels. We drain the response but
+            # 7. Always close both channels. We drain the response but
             # do not assert on it; the goal is to leave both devices
-            # in the closed state so the next subTest can re-configure
-            # S/Y. C\r is idempotent on an already-closed channel.
+            # in the closed state so the next combo can re-configure
+            # the bit rates. C\r is idempotent on an already-closed
+            # channel.
             for dev in (self.dut, self.aux):
                 dev.send(b"C\r")
                 dev.receive()
@@ -282,6 +392,35 @@ class CommunicationTestCase(unittest.TestCase):
             self.skipTest(f"{cmd_letter.decode()}{n} not accepted by {dev_name}")
         self.assertEqual(r, b"\r",
                          f"{dev_name}: unexpected response to {cmd!r}: {r!r}")
+
+
+    def _read_clock_mhz(self, dev):
+        """Return the CAN clock in MHz from the I command (Ixyzz, zz in hex)."""
+        dev.send(b"I\r")
+        r = dev.receive()
+        match = re.fullmatch(rb"I[0-9A-F]{2}([0-9A-F]{2})\r", r)
+        self.assertIsNotNone(match, f"Unexpected I reply: {r!r}")
+        return int(match.group(1), 16)
+
+
+    def _find_data_bit_timing(self, clock_mhz, kbps, sp):
+        """Return (prescaler, tseg1, tseg2, sjw) that gives the data bit
+        rate and SP exactly with the smallest prescaler, or None.
+
+        SP = (1 + tseg1) / (1 + tseg1 + tseg2). SJW is set to the
+        largest allowed value, min(tseg1, tseg2).
+        """
+        for prescaler in range(1, self.MAX_DATA_PRESCALER + 1):
+            if (clock_mhz * 1000) % (kbps * prescaler):
+                continue
+            tq = clock_mhz * 1000 // (kbps * prescaler)
+            if (tq * sp) % 100:
+                continue
+            tseg1 = tq * sp // 100 - 1
+            tseg2 = tq - 1 - tseg1
+            if 1 <= tseg1 <= self.MAX_DATA_TSEG1 and 1 <= tseg2 <= self.MAX_DATA_TSEG2:
+                return (prescaler, tseg1, tseg2, min(tseg1, tseg2))
+        return None
 
 
     def _drain_until_quiet(self, dev):
@@ -326,7 +465,7 @@ class CommunicationTestCase(unittest.TestCase):
         return frames
 
 
-    def _assert_received(self, rx_data, expected_frames, recipient, s, y):
+    def _assert_received(self, rx_data, expected_frames, recipient, label):
         """Verify rx_data contains all expected_frames in order, after
         stripping the recipient's own z[CR] acks.
 
@@ -337,7 +476,7 @@ class CommunicationTestCase(unittest.TestCase):
         received_msgs = [m for m in stripped.split(b"\r") if m]
         expected_msgs = [f.rstrip(b"\r") for f in expected_frames]
         self.assertEqual(received_msgs, expected_msgs,
-                         f"S{s}Y{y}: {recipient} received frames mismatch")
+                         f"{label}: {recipient} received frames mismatch")
 
 
 if __name__ == "__main__":
