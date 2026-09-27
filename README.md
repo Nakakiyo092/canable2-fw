@@ -1,3 +1,7 @@
+> [!NOTE]
+> Development has moved to [Nakakiyo092/canable2kai](https://github.com/Nakakiyo092/canable2kai).
+> This repository is kept for reference and no longer receives updates.
+
 # CANable 2.0 Firmware
 
 This repository contains sources for the slcan CANable 2.0 firmware. This firmware implements non-standard commands to support CANFD messaging (beta) alongside a LAWICEL-style command set.
